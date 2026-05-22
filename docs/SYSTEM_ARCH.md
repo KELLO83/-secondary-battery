@@ -71,6 +71,7 @@ secanday_battery/
           __init__.py
           RealMLP.py
           TabM.py
+          TabR.py
           DCNV2.py
         transformer/
           __init__.py
@@ -80,7 +81,9 @@ secanday_battery/
         foundation/
           __init__.py
           TabPFN.py
+          TabPFNLatest.py
           TabICLv2.py
+          AutoGluonMitra.py
       eval/
         __init__.py
         metrics.py
@@ -213,7 +216,8 @@ CHEM_22_NUMERIC_COLUMNS = DESIGN_15_NUMERIC_COLUMNS + [
 규칙:
 
 - 기본 feature set은 `core_11`이다.
-- `design_15`, `chem_22`는 `core_11`에서 우수한 모델을 찾은 뒤 후순위 별도 모델로 학습한다.
+- `design_15`, `chem_22`, `chem_derived`는 `core_11`에서 우수한 모델을 찾은 뒤 후순위 별도 모델로 학습한다.
+- `chem_derived`는 `ml/src/data/derived_features.py`에서 생성하며, `chem_22` 원본 칼럼을 기반으로 한 leakage-safe 파생변수만 포함한다.
 - 48개 raw column 전체를 자동 feature로 사용하는 helper를 만들지 않는다.
 
 ### 4.2 `ml/src/data/loader.py`
@@ -362,11 +366,14 @@ MODEL_REGISTRY = {
     "catboost": CatBoostModel,
     "realmlp": RealMLPModel,
     "tabm": TabMModel,
+    "tabr": TabRModel,
     "dcnv2": DCNV2Model,
     "ft_transformer": FTTransformerModel,
     "tab_transformer": TabTransformerModel,
     "tabpfn": TabPFNModel,
-    "tabicl": TabICLModel,
+    "tabpfn_latest": TabPFNLatestModel,
+    "tabiclv2": TabICLv2Model,
+    "autogluon_mitra": AutoGluonMitraModel,
     "tabnet": TabNetModel,
 }
 ```
@@ -379,13 +386,16 @@ MODEL_REGISTRY = {
 
 필수 metric:
 
-- MAPE
-- MAE
 - RMSE
+- MAE
+- WAPE
+- SMAPE
+- filtered MAPE
+- raw MAPE, diagnostic only
 
 주의:
 
-- MAPE는 target이 0에 가까운 경우 불안정하므로 epsilon을 둔다.
+- raw MAPE는 target이 0에 가까운 경우 불안정하므로 최종 순위 기준에서 제외한다.
 - metric 함수는 numpy array를 입력받고 float를 반환한다.
 
 ### 4.9 `ml/src/eval/leakage.py`
@@ -535,9 +545,9 @@ leaderboard는 split type별로 분리한다.
 
 정렬 기준:
 
-1. `test_mape` ascending
+1. `test_rmse` ascending
 2. `test_mae` ascending
-3. `test_rmse` ascending
+3. `test_wape` ascending
 4. `train_time_sec` ascending
 
 ## 7. 테스트 요구사항
@@ -545,7 +555,7 @@ leaderboard는 split type별로 분리한다.
 필수 테스트:
 
 - `test_schema.py`: feature/target/metadata 칼럼 정의 검증
-- `test_metrics.py`: MAPE, MAE, RMSE 계산 검증
+- `test_metrics.py`: RMSE, MAE, WAPE, SMAPE, filtered MAPE, raw MAPE 계산 검증
 - `test_splitters.py`: random/group split 비율과 group overlap 검증
 - `test_preprocessing.py`: metadata 제거, outlier 필터링, unknown category 처리 검증
 - `test_experiment_logging.py`: 결과 CSV/JSON 기록 검증

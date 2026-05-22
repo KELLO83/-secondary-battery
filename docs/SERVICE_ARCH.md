@@ -322,9 +322,19 @@ gpu_memory_mb DOUBLE PRECISION
 valid_mape DOUBLE PRECISION
 valid_mae DOUBLE PRECISION
 valid_rmse DOUBLE PRECISION
+valid_wape DOUBLE PRECISION
+valid_smape DOUBLE PRECISION
+valid_filtered_mape DOUBLE PRECISION
+valid_filtered_mape_threshold DOUBLE PRECISION
+valid_filtered_mape_n_rows BIGINT
 test_mape DOUBLE PRECISION
 test_mae DOUBLE PRECISION
 test_rmse DOUBLE PRECISION
+test_wape DOUBLE PRECISION
+test_smape DOUBLE PRECISION
+test_filtered_mape DOUBLE PRECISION
+test_filtered_mape_threshold DOUBLE PRECISION
+test_filtered_mape_n_rows BIGINT
 artifact_path TEXT
 notes TEXT
 created_at TIMESTAMPTZ

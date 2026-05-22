@@ -7,8 +7,9 @@
 핵심 목표는 다음과 같다.
 
 - `LightGBM`, `CatBoost` 기반의 강한 실무 baseline 확보
-- `FT-Transformer`, `TabTransformer`, `DCN-V2`, `TabM`, `RealMLP` 등 정형 데이터 딥러닝 모델 비교
-- `TabPFN-3`, `TabICLv2` 등 최신 Tabular Foundation Model을 샘플링 데이터에서 검증
+- `FT-Transformer`, `TabTransformer`, `DCN-V2`, `NODE`, `TabM`, `TabR`, `RealMLP` 등 정형 데이터 딥러닝 모델 비교
+- `TabPFN-3/latest`, `TabICLv2` 등 최신 Tabular Foundation Model을 샘플링 데이터에서 검증
+- `AutoGluon/Mitra`는 단일 모델이 아니라 ceiling benchmark로 분리 검증
 - random split과 group split 성능 차이를 통해 데이터 누수 가능성 평가
 - 최종적으로 2차전지 `remain_capacity` 예측에 가장 실용적인 모델군 선정
 
@@ -20,6 +21,11 @@
 - URL: https://www.aihub.or.kr/aihubdata/data/view.do?aihubDataSe=data&dataSetSn=71869
 - 데이터 규모: 총 16,325,872건
 - 데이터 크기: 약 1.40GB
+- Training 데이터 규모: 총 13,060,696건
+  - LFP: 131,790건, 약 1%
+  - NCA: 769,225건, 약 6%
+  - NCM: 8,750,613건, 약 67%
+  - Others: 3,409,068건, 약 26%
 - 문제 유형: 회귀
 - 타겟 변수: `remain_capacity`
 - 1차 입력 변수: `core_11` 총 11개
@@ -39,6 +45,10 @@
 - 후순위 확장 입력 변수
   - `design_15`: `core_11` + `sintering_T1(C)`, `sintering_t1(h)`, `measurement_T(C)`, `C-rate`
   - `chem_22`: `design_15` + `Li_fraction`, `Ni_fraction`, `Mn_fraction`, `Co_fraction`, `dopant_fraction`, `active_proportion`, `binder_proportion`
+  - `chem_derived`: `chem_22` + domain-derived leakage-safe features
+- target-derived leakage feature, 정상 모델 학습 제외
+  - `discharge_capacity (mAh/g)`
+  - `state_of_charge`
 - 학습 제외 메타데이터 후보
   - `material_id`
   - `chemical_formula`
@@ -55,17 +65,64 @@
 
 주요 평가 지표:
 
-- MAPE
-- MAE
 - RMSE
+- MAE
+- WAPE
+- SMAPE
+- filtered MAPE
+- raw MAPE, diagnostic only
 - 학습 시간
 - 추론 시간
 - peak memory 또는 GPU memory 사용량
 
+Metric 우선순위:
+
+- Primary: RMSE, MAE, WAPE
+- Secondary: SMAPE, `abs(remain_capacity) > 5` 기준 filtered MAPE
+- Diagnostic only: raw MAPE
+
+raw MAPE는 `remain_capacity=0` 또는 0에 가까운 row에서 폭발하므로 최종 모델 선정 기준으로 사용하지 않는다.
+
+### 3.1.1 운영 투입 마지노선
+
+본 프로젝트의 1차 목표는 모델 비교와 데이터 한계 확인이다. 다만 최종 서비스 또는 현업 의사결정 보조 모델로 승격하려면 다음 최소 기준을 만족해야 한다.
+
+운영 후보 통과 기준:
+
+```text
+WAPE <= 10%
+MAE <= target scale의 5% 수준
+filtered MAPE <= 20%
+```
+
+권장 목표 기준:
+
+```text
+WAPE <= 5%
+MAE <= target scale의 2% 수준
+filtered MAPE <= 15%
+```
+
+판정 규칙:
+
+- WAPE가 10%를 넘는 모델은 운영/서비스 투입 후보에서 제외한다.
+- WAPE가 30% 이상이면 모델 구조 문제가 아니라 현재 feature set의 정보 부족 가능성을 우선 의심한다.
+- 모든 SOTA 모델을 적용해도 WAPE가 10% 아래로 내려오지 않으면, `core_11`, `chem_22`, `chem_derived` feature만으로는 `remain_capacity` 예측에 필요한 정보가 부족하다고 결론낸다.
+- 이 경우 모델을 계속 복잡하게 하기보다 신규 feature 설계, 측정 조건 추가, 시계열 데이터 확보, 또는 문제 정의 변경을 우선 검토한다.
+- 위 기준은 target-derived leakage feature를 제외한 정상 feature set에서만 적용한다.
+
+Leakage 기준:
+
+- `remain_capacity = discharge_capacity (mAh/g) * state_of_charge / 100` 관계가 전체 Training/Validation CSV에서 성립한다.
+- `discharge_capacity (mAh/g)`와 `state_of_charge`를 함께 feature로 사용한 실험은 target leakage 실험으로 분류한다.
+- 위 두 컬럼을 포함하는 `official`/raw-full feature set은 실행 옵션으로 제공하지 않는다.
+- 과거에 생성된 해당 조합 결과는 target leakage artifact로만 보관하고, 최종 모델 후보 또는 운영 후보 순위에는 포함하지 않는다.
+
 1차 목표:
 
 - `LightGBM` 또는 `CatBoost`로 재현 가능한 baseline 확보
-- 문서상 benchmark인 MAPE 2.969%에 근접하거나 이를 설명 가능한 방식으로 비교
+- RMSE/MAE/WAPE 기준으로 재현 가능한 baseline 확보
+- 문서상 MAPE benchmark는 target 0 처리 방식과 target-derived feature 사용 여부를 확인한 뒤 참고용으로만 비교
 
 2차 목표:
 
@@ -77,11 +134,17 @@
 - random split과 group split을 모두 수행한다.
 - group split 기준은 가능한 경우 `DOI` 또는 `material_id`를 우선 사용한다.
 - 메타데이터 칼럼은 학습 입력에서 제외한다.
+- target-derived leakage 칼럼인 `discharge_capacity (mAh/g)`, `state_of_charge`는 정상 모델 학습 입력에서 제외한다.
 - 1차 모델 개발에서는 `core_11` 11개 feature만 사용한다.
-- `design_15`, `chem_22`는 `core_11`에서 우수한 모델을 찾은 뒤 후순위 별도 모델로 개발한다.
-- 48개 raw column 전체를 자동 feature로 넣지 않는다.
+- `design_15`, `chem_22`, `chem_derived`는 `core_11`에서 우수한 모델을 찾은 뒤 후순위 별도 모델로 개발한다.
+- `chem_derived`는 `chem_22` 이후의 feature engineering 효과 검증용 feature set이며, 먼저 LightGBM으로 효용을 검증한다.
+- 48개 raw column 전체를 정상 leaderboard용 입력으로 자동 사용하지 않는다.
+- `official`/raw-full feature set은 코드에서 지원하지 않는다.
 - 모든 실험은 seed, split 방식, 샘플 수, 모델 hyperparameter, 실행 시간을 기록한다.
 - 결과는 재현 가능한 CSV/JSON 형태로 저장한다.
+- sample 기반 실험은 기본적으로 `source_family` 비율을 유지하는 stratified sampling을 사용한다.
+- random sampling을 사용하는 경우 NCM 편중 효과를 결과 해석에 명시한다.
+- 모든 주요 metric은 전체 validation metric과 `source_family`별 metric을 함께 기록한다.
 
 ## 4. 실험 범위
 
@@ -116,7 +179,7 @@
 - LightGBM
   - categorical feature 명시
   - objective: regression
-  - metric: RMSE, MAE, MAPE 별도 계산
+  - metric: RMSE, MAE, WAPE, SMAPE, filtered MAPE, raw MAPE 별도 계산
   - early stopping 사용
 - CatBoost
   - categorical feature native 처리
@@ -140,13 +203,17 @@
 
 - RealMLP
 - TabM
+- TabR
 - DCN-V2
+- NODE
 
 추천 이유:
 
 - RealMLP: 강한 MLP baseline
 - TabM: 최근 tabular benchmark에서 강한 효율적 MLP ensemble 계열
+- TabR: retrieval-augmented tabular DL로 유사 recipe 검색 기반 개선 가능성 확인
 - DCN-V2: 소재 조합과 전압 조건의 explicit feature interaction 검증에 적합
+- NODE: differentiable oblivious decision tree ensemble로 tree-like neural 비교축 제공
 
 실험 단위:
 
@@ -171,6 +238,7 @@ DCN-V2 주요 sweep:
 - FT-Transformer
 - TabTransformer
 - TabPFN-3
+- TabPFN latest, 기본 `v3`
 - TabICLv2
 - TabNet
 
@@ -179,6 +247,7 @@ DCN-V2 주요 sweep:
 - FT-Transformer: 직접 학습형 tabular transformer 기준 모델
 - TabTransformer: 범주형 feature attention 특화 비교 모델
 - TabPFN-3: 최신 Tabular Foundation Model, 샘플링 데이터 중심
+- TabPFN latest: 최신 Prior Labs checkpoint/API 접근 가능 시 `tabpfn_latest`로 별도 기록
 - TabICLv2: 대용량 지향 In-Context Learning 기반 foundation model
 - TabNet: 해석 가능성과 feature selection 관점의 보조 비교 모델
 
@@ -192,7 +261,11 @@ DCN-V2 주요 sweep:
 
 주의:
 
-- TabPFN-3와 TabICLv2는 전체 16.3M건 학습용 모델로 전제하지 않는다.
+- Training 데이터는 NCM이 약 67%를 차지하므로 sample 기반 foundation/transformer 실험은 stratified sampling을 기본으로 한다.
+- TabPFN-3는 `core_11`처럼 feature 수가 적은 입력에서는 100k~1M row sample 실험 가치가 있다.
+- TabPFN-2.6 fallback은 100k row급까지 우선 검토하고, TabPFN-2.5 fallback은 50k~100k row급으로 제한한다.
+- TabPFN-3와 TabICLv2는 공개 로컬/OSS 경로 기준 전체 16.3M건 학습용 기본 모델로 전제하지 않는다.
+- TabPFN Enterprise/API Scaling Mode 또는 Large Data Mode를 사용할 경우 일반 로컬 `tabpfn_latest` 결과와 분리해 기록한다.
 - 샘플 수를 단계적으로 늘리며 OOM, 실행 시간, 성능을 기록한다.
 - Foundation model 결과는 full-data GBDT 결과와 직접 동등 비교하지 않고, 동일 sample 조건에서 비교한다.
 
@@ -221,6 +294,31 @@ DCN-V2 주요 sweep:
 - TabPFN/TabICL
   - 각 라이브러리의 권장 preprocessing 우선
   - 필요 시 categorical encoding 방식 명시 기록
+
+### 5.3 파생변수 생성 정책
+
+파생변수는 `chem_22` 이후의 별도 feature set인 `chem_derived`에서만 사용한다.
+
+생성 변수:
+
+```text
+voltage_window = voltage_range(V)_max - voltage_range(V)_min
+voltage_mid = (voltage_range(V)_max + voltage_range(V)_min) / 2
+Ni_to_Mn = Ni_fraction / (Mn_fraction + eps)
+Ni_to_Co = Ni_fraction / (Co_fraction + eps)
+Li_to_TM = Li_fraction / (Ni_fraction + Mn_fraction + Co_fraction + eps)
+active_to_binder = active_proportion / (binder_proportion + eps)
+total_transition_metal = Ni_fraction + Mn_fraction + Co_fraction
+```
+
+규칙:
+
+- `core_11`은 최소 recipe 입력 모델로 보존한다.
+- `chem_22`는 원본 확장 feature set으로 보존한다.
+- `chem_derived`는 원본 feature set과 같은 leaderboard 행으로 섞지 않는다.
+- `remain_capacity`, `discharge_capacity (mAh/g)`, `state_of_charge`를 사용하는 파생변수는 금지한다.
+- `chem_derived`의 1차 검증은 LightGBM으로 수행한다.
+- LightGBM에서 `chem_22` 대비 명확한 개선이 있을 때 CatBoost, TabM, NODE, TabPFN/TabICL 후보로 확장한다.
 
 ## 6. Split 전략
 
@@ -285,9 +383,19 @@ gpu_memory_mb
 valid_mape
 valid_mae
 valid_rmse
+valid_wape
+valid_smape
+valid_filtered_mape
+valid_filtered_mape_threshold
+valid_filtered_mape_n_rows
 test_mape
 test_mae
 test_rmse
+test_wape
+test_smape
+test_filtered_mape
+test_filtered_mape_threshold
+test_filtered_mape_n_rows
 notes
 ```
 
@@ -308,12 +416,15 @@ notes
 2. CatBoost
 3. RealMLP
 4. TabM
-5. DCN-V2
-6. FT-Transformer
-7. TabPFN-3
-8. TabICLv2
-9. TabTransformer
-10. TabNet
+5. TabR
+6. DCN-V2
+7. NODE
+8. FT-Transformer
+9. TabPFN-3/latest
+10. TabICLv2
+11. TabTransformer
+12. TabNet
+13. AutoGluon/Mitra, ceiling only
 ```
 
 ### 8.2 Full Data 우선순위
@@ -323,7 +434,9 @@ notes
 2. CatBoost
 3. RealMLP
 4. TabM
-5. DCN-V2, 리소스 허용 시
+5. TabR, sample/index 비용 허용 시
+6. DCN-V2, 리소스 허용 시
+7. NODE, 100k/500k에서 유망할 때
 ```
 
 ### 8.3 Sampled Data 우선순위
@@ -333,76 +446,101 @@ notes
 2. CatBoost
 3. FT-Transformer
 4. DCN-V2
-5. TabPFN-3
-6. TabICLv2
-7. TabM
-8. RealMLP
-9. TabTransformer
-10. TabNet
+5. TabR
+6. NODE
+7. TabPFN-3/latest
+8. TabICLv2
+9. TabM
+10. RealMLP
+11. TabTransformer
+12. TabNet
+13. AutoGluon/Mitra, ceiling only
 ```
 
 ## 9. 주요 비교 질문
 
 본 실험은 단순 leaderboard가 아니라 다음 질문에 답해야 한다.
 
-1. GBDT baseline은 문서상 MAPE 2.969%에 근접하는가?
+1. GBDT baseline은 RMSE/MAE/WAPE 기준으로 안정적인가?
 2. random split과 group split의 성능 차이는 어느 정도인가?
 3. CatBoost의 categorical 처리와 LightGBM의 categorical 처리는 어느 쪽이 더 강한가?
 4. DCN-V2의 explicit cross 구조는 배터리 소재 조합 예측에서 CatBoost/LightGBM보다 유리한가?
 5. RealMLP/TabM은 대규모 정형 회귀에서 FT-Transformer보다 실용적인가?
 6. FT-Transformer는 수치형 전압 피처까지 token attention에 포함했을 때 의미 있는 성능 이득을 보이는가?
 7. TabTransformer는 범주형 9개 중심 구조에서 FT-Transformer 대비 장점이 있는가?
-8. TabPFN-3와 TabICLv2는 같은 sample 조건에서 GBDT baseline을 이길 수 있는가?
-9. Foundation model의 성능 이득이 설치/라이선스/실행 비용을 정당화하는가?
-10. 최종 실무 모델은 단일 모델인가, AutoML/ensemble인가?
+8. TabR의 retrieval 구조는 `core_11`에서 LightGBM이 놓친 유사 recipe 패턴을 보완하는가?
+9. TabPFN-3/latest와 TabICLv2는 같은 sample 조건에서 GBDT baseline을 이길 수 있는가?
+10. Foundation model의 성능 이득이 설치/라이선스/실행 비용을 정당화하는가?
+11. AutoGluon/Mitra ceiling benchmark가 단일 모델 대비 의미 있는 상한선을 보여주는가?
+12. 최종 실무 모델은 단일 모델인가, AutoML/ensemble인가?
 
 ## 10. 리스크 및 대응
+
+실행 전 상세 체크리스트는 `docs/RUN_RISK_CHECKLIST.md`를 따른다.
 
 ### 10.1 데이터 누수
 
 리스크:
 
 - 같은 논문, 소재, 화학식에서 파생된 row가 train/test에 동시에 존재할 수 있다.
+- `discharge_capacity (mAh/g)`와 `state_of_charge`는 `remain_capacity`를 직접 복원하는 target-derived feature이다.
+- `official`/raw-full feature set은 위 두 컬럼을 포함하므로 실행 옵션에서 제거한다.
 
 대응:
 
 - random split 외에 group split 필수 수행
 - `DOI`, `material_id`, `chemical_formula`를 입력 feature에서 제외
+- `discharge_capacity (mAh/g)`, `state_of_charge`를 정상 학습 feature에서 제외
+- 기존 `official`/raw-full 실험 결과는 별도 태그를 붙이고 최종 운영 후보에서 제외
 
 ### 10.2 대용량 학습 비용
 
 리스크:
 
 - 16.3M건 전체 학습 시 GPU/CPU memory, I/O, 학습 시간이 병목이 될 수 있다.
+- Neural/Transformer/Foundation 모델은 GPU memory/OOM으로 실패할 수 있다.
+- 노트북 RTX 4060 8GB 환경에서는 1M 이상 neural/transformer 실험을 바로 시작하지 않는다.
 
 대응:
 
 - 50k, 100k, 500k, 1M, full 순서로 확장
 - 각 단계에서 시간과 memory 기록
 - OOM 발생 시 batch size, embedding dimension, model depth 축소
+- 대형 실험은 한 번에 하나의 모델만 실행
+- 실행 전 `nvidia-smi`로 GPU 점유 프로세스 확인
+- OOM 발생 시 실패 실험으로 기록하고, 축소한 최종 batch/model/sample 조건을 로그에 남김
 
 ### 10.3 Foundation Model 라이선스 및 접근성
 
 리스크:
 
-- TabPFN-3 또는 TabPFN-2.5 계열은 라이선스, token, API, Hugging Face 접근 조건이 있을 수 있다.
+- TabPFN-3/2.6/2.5 계열은 라이선스, token, API, Hugging Face 접근 조건이 있을 수 있다.
+- TabPFN Enterprise/API Scaling Mode는 비용, 데이터 업로드 제한, 사내 데이터 반출 가능성, 재현성 조건을 별도 검토해야 한다.
+- AutoGluon/Mitra는 optional dependency이며 기본 환경에 설치되어 있지 않을 수 있다.
+- AutoGluon/Mitra는 내부 모델 구성이 복합적이므로 단일 모델 성능 원인 분석에는 부적합하다.
 
 대응:
 
 - 설치 전 라이선스 확인
 - local OSS 사용 가능 여부와 API 사용 여부를 분리 기록
 - 상업적 사용 가능성은 별도 검토
+- API/Enterprise Scaling Mode는 별도 ceiling/large-scale foundation 실험으로만 실행
+- TabPFN은 `TABPFN_TOKEN`, cached token, 또는 local checkpoint가 없으면 실행하지 않고 실패 실험으로 기록
+- AutoGluon/Mitra는 `.venv314`에서 설치 가능성을 확인하고, 50k 또는 100k sample smoke 이후에만 ceiling benchmark로 실행
+- AutoGluon/Mitra 실행 시 `time_limit`을 반드시 지정
 
 ### 10.4 평가 지표 왜곡
 
 리스크:
 
-- `remain_capacity`가 0에 가까운 경우 MAPE가 불안정할 수 있다.
+- `remain_capacity`가 0에 가까운 경우 raw MAPE가 불안정하다.
 
 대응:
 
-- MAPE와 함께 MAE, RMSE를 항상 보고
-- 필요 시 SMAPE 또는 target bin별 error 분석 추가
+- RMSE, MAE, WAPE를 primary metric으로 사용
+- SMAPE와 filtered MAPE를 보조 지표로 사용
+- raw MAPE는 diagnostic으로만 기록
+- 필요 시 target bin별 error 분석 추가
 
 ## 11. 구현 단계
 
@@ -435,7 +573,9 @@ notes
 
 - RealMLP 구현
 - TabM 구현
+- TabR 구현
 - DCN-V2 구현
+- NODE 구현
 - 100k, 1M 실험
 
 완료 조건:
@@ -447,8 +587,10 @@ notes
 - FT-Transformer 구현
 - TabTransformer 구현
 - TabPFN-3 설치 및 샘플 실험
+- TabPFN latest, 기본 v3 접근 가능성 확인 및 샘플 실험
 - TabICLv2 설치 및 샘플 실험
 - TabNet 보조 실험
+- AutoGluon/Mitra ceiling benchmark 선택 실행
 
 완료 조건:
 

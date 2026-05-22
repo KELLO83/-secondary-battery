@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import logging
 import sys
 from pathlib import Path
@@ -27,7 +28,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Evaluate on the full integrated Validation CSVs instead of a validation sample.",
     )
-    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "official"], default="core_11")
+    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "chem_derived"], default="core_11")
     parser.add_argument(
         "--task-type",
         choices=["CPU", "GPU"],
@@ -43,12 +44,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, default=Path("results/experiments.csv"))
+    parser.add_argument("--log-file", type=Path, default=None, help="Optional file path for persistent training logs.")
     return parser.parse_args()
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     args = parse_args()
+    _setup_logging(args)
     sample_size = None if args.full_data else args.sample_size
     valid_sample_size = None if args.valid_full_data else args.valid_sample_size
     model_params = _build_model_params(args)
@@ -89,6 +91,26 @@ def _build_model_params(args: argparse.Namespace) -> dict[str, object]:
     if args.task_type is not None:
         raise ValueError("--task-type is currently supported for catboost baseline only")
     return params
+
+
+def _setup_logging(args: argparse.Namespace) -> None:
+    log_file = args.log_file
+    if log_file is None:
+        run_scope = "full" if args.full_data else f"sample{args.sample_size}"
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = Path("results/logs") / f"{args.model}_{args.feature_set}_{run_scope}_seed{args.seed}_{stamp}.log"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    handlers: list[logging.Handler] = [
+        logging.StreamHandler(),
+        logging.FileHandler(log_file, encoding="utf-8"),
+    ]
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        handlers=handlers,
+        force=True,
+    )
+    LOGGER.info("Persistent log file: %s", log_file)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 from ml.src import schema
+from ml.src.data.derived_features import add_chem_derived_features
 
 
 def validate_columns(df: pd.DataFrame, feature_set: str = "core_11") -> None:
@@ -19,7 +20,15 @@ def validate_columns(df: pd.DataFrame, feature_set: str = "core_11") -> None:
 
 
 def _required_columns(feature_set: str) -> list[str]:
+    if feature_set == "chem_derived":
+        return [*schema.CHEM_22_FEATURE_COLUMNS, schema.TARGET_COLUMN]
     return [*schema.get_feature_columns(feature_set), schema.TARGET_COLUMN]
+
+
+def _apply_feature_set(df: pd.DataFrame, feature_set: str) -> pd.DataFrame:
+    if feature_set == "chem_derived":
+        return add_chem_derived_features(df)
+    return df
 
 
 def _read_family_csv(
@@ -31,6 +40,7 @@ def _read_family_csv(
     if not path.exists():
         raise FileNotFoundError(f"Missing CSV file: {path}")
     df = pd.read_csv(path, nrows=nrows, usecols=_required_columns(feature_set), low_memory=False)
+    df = _apply_feature_set(df, feature_set)
     df[schema.SOURCE_FAMILY_COLUMN] = source_family
     return df
 
@@ -48,10 +58,14 @@ def load_integrated_split(
     else:
         raise ValueError(f"Unsupported split: {split!r}")
 
-    parts = [
-        _read_family_csv(path, family, nrows_per_family, feature_set=feature_set)
-        for family, path in files.items()
-    ]
+    parts = []
+    for family, path in tqdm(
+        list(files.items()),
+        desc=f"Loading {split}",
+        unit="family",
+        leave=False,
+    ):
+        parts.append(_read_family_csv(path, family, nrows_per_family, feature_set=feature_set))
     df = pd.concat(parts, ignore_index=True)
     validate_columns(df, feature_set=feature_set)
     return df
@@ -77,13 +91,14 @@ def sample_integrated_split(
 
     if split == "train":
         files = schema.TRAIN_FILES
+        row_counts = schema.TRAIN_ROW_COUNTS
     elif split in {"validation", "valid", "val"}:
         files = schema.VALIDATION_FILES
+        row_counts = schema.VALIDATION_ROW_COUNTS
     else:
         raise ValueError(f"Unsupported split: {split!r}")
 
-    per_family = max(1, sample_size // len(files))
-    remainder = sample_size % len(files)
+    family_sizes = _allocate_family_sample_sizes(sample_size, row_counts)
     parts = []
     iterator = tqdm(
         list(files.items()),
@@ -92,7 +107,9 @@ def sample_integrated_split(
         leave=False,
     )
     for idx, (family, path) in enumerate(iterator):
-        family_size = per_family + (1 if idx < remainder else 0)
+        family_size = family_sizes[family]
+        if family_size <= 0:
+            continue
         parts.append(
             _sample_family_csv(
                 path=path,
@@ -108,6 +125,25 @@ def sample_integrated_split(
     if len(df) > sample_size:
         df = df.sample(n=sample_size, random_state=seed).reset_index(drop=True)
     return df
+
+
+def _allocate_family_sample_sizes(sample_size: int, row_counts: dict[str, int]) -> dict[str, int]:
+    """Allocate sample rows proportionally to source-family row counts."""
+    total_rows = sum(row_counts.values())
+    if sample_size >= total_rows:
+        return dict(row_counts)
+
+    raw = {family: sample_size * count / total_rows for family, count in row_counts.items()}
+    allocated = {family: min(row_counts[family], int(raw[family])) for family in row_counts}
+    remainder = sample_size - sum(allocated.values())
+    order = sorted(raw, key=lambda family: raw[family] - int(raw[family]), reverse=True)
+    for family in order:
+        if remainder <= 0:
+            break
+        if allocated[family] < row_counts[family]:
+            allocated[family] += 1
+            remainder -= 1
+    return allocated
 
 
 def _sample_family_csv(
@@ -135,7 +171,7 @@ def _sample_family_csv(
         unit="chunk",
         leave=False,
     ):
-        chunk = chunk.copy()
+        chunk = _apply_feature_set(chunk.copy(), feature_set)
         chunk["_sample_key"] = pd.util.hash_pandas_object(
             chunk.index.to_series() + rng_seed,
             index=False,

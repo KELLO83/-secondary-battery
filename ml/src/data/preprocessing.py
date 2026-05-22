@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from ml.src import schema
+from ml.src.data.derived_features import add_chem_derived_features
 
 
 @dataclass(frozen=True)
@@ -32,9 +33,11 @@ def filter_target_range(
     return df.loc[mask].copy()
 
 
-def prepare_xy(df: pd.DataFrame, feature_set: str = "official") -> PreparedData:
+def prepare_xy(df: pd.DataFrame, feature_set: str = "core_11") -> PreparedData:
     """Split dataframe into model features, target, and source-family metadata."""
     df = filter_target_range(df)
+    if feature_set == "chem_derived":
+        df = add_chem_derived_features(df)
     feature_columns = schema.get_feature_columns(feature_set)
     X = df[feature_columns].copy()
     for column in schema.get_numeric_columns(feature_set):
@@ -44,7 +47,7 @@ def prepare_xy(df: pd.DataFrame, feature_set: str = "official") -> PreparedData:
     return PreparedData(X=X, y=y, source_family=source_family)
 
 
-def build_sklearn_preprocessor(feature_set: str = "official") -> ColumnTransformer:
+def build_sklearn_preprocessor(feature_set: str = "core_11") -> ColumnTransformer:
     """Build a preprocessing transformer for mixed tabular features."""
     numeric_columns = schema.get_numeric_columns(feature_set)
     categorical_columns = schema.get_categorical_columns(feature_set)

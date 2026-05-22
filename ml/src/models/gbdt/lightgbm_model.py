@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
 
 from ml.src import schema
 from ml.src.models.base import BaseModel
@@ -49,13 +50,16 @@ class LightGBMModel(BaseModel):
         y_valid: pd.Series | None = None,
     ) -> None:
         train = self._prepare_frame(X_train)
-        fit_kwargs: dict[str, Any] = {"categorical_feature": self.categorical_columns}
+        fit_kwargs: dict[str, Any] = {
+            "categorical_feature": self.categorical_columns,
+            "callbacks": [_tqdm_callback(int(self.config["params"].get("n_estimators", 0)) or None)],
+        }
         if X_valid is not None and y_valid is not None:
             from lightgbm import early_stopping, log_evaluation
 
             valid = self._prepare_frame(X_valid)
             fit_kwargs["eval_set"] = [(valid, y_valid)]
-            fit_kwargs["callbacks"] = [early_stopping(50), log_evaluation(0)]
+            fit_kwargs["callbacks"].extend([early_stopping(50), log_evaluation(50)])
         self.model.fit(train, y_train, **fit_kwargs)
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
@@ -68,3 +72,17 @@ class LightGBMModel(BaseModel):
         for column in self.categorical_columns:
             frame[column] = frame[column].astype("string").fillna("__MISSING__").astype("category")
         return frame
+
+
+def _tqdm_callback(total: int | None):
+    progress = {"bar": None}
+
+    def _callback(env: Any) -> None:
+        if progress["bar"] is None:
+            progress["bar"] = tqdm(total=total, desc="lightgbm iterations", unit="iter")
+        progress["bar"].update(1)
+        if env.iteration + 1 >= env.end_iteration:
+            progress["bar"].close()
+
+    _callback.order = 0
+    return _callback

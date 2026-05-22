@@ -14,11 +14,25 @@ TRAIN_FILES = {
     "Others": Path("Training/others_train_dataset.csv"),
 }
 
+TRAIN_ROW_COUNTS = {
+    "LFP": 131_790,
+    "NCA": 769_225,
+    "NCM": 8_750_613,
+    "Others": 3_409_068,
+}
+
 VALIDATION_FILES = {
     "LFP": Path("Validation/LFP_val_dataset.csv"),
     "NCA": Path("Validation/NCA_val_dataset.csv"),
     "NCM": Path("Validation/NCM_val_dataset.csv"),
     "Others": Path("Validation/others_val_dataset.csv"),
+}
+
+VALIDATION_ROW_COUNTS = {
+    "LFP": 16_474,
+    "NCA": 96_153,
+    "NCM": 1_093_827,
+    "Others": 426_133,
 }
 
 CORE_NUMERIC_COLUMNS = [
@@ -75,6 +89,11 @@ EXTENDED_NUMERIC_COLUMNS = [
     "struct_hetero_cell",
 ]
 
+TARGET_DERIVED_LEAKAGE_COLUMNS = [
+    "discharge_capacity (mAh/g)",
+    "state_of_charge",
+]
+
 EXTENDED_CATEGORICAL_COLUMNS = [
     "space_group_symbol",
 ]
@@ -112,15 +131,21 @@ CHEM_22_NUMERIC_COLUMNS = DESIGN_15_NUMERIC_COLUMNS + [
 ]
 CHEM_22_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS
 CHEM_22_FEATURE_COLUMNS = CHEM_22_NUMERIC_COLUMNS + CHEM_22_CATEGORICAL_COLUMNS
-FULL_NUMERIC_COLUMNS = CORE_NUMERIC_COLUMNS + EXTENDED_NUMERIC_COLUMNS
-FULL_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS + EXTENDED_CATEGORICAL_COLUMNS
-FULL_FEATURE_COLUMNS = FULL_NUMERIC_COLUMNS + FULL_CATEGORICAL_COLUMNS
-OFFICIAL_NUMERIC_COLUMNS = FULL_NUMERIC_COLUMNS
-OFFICIAL_CATEGORICAL_COLUMNS = FULL_CATEGORICAL_COLUMNS
-OFFICIAL_FEATURE_COLUMNS = FULL_FEATURE_COLUMNS
+CHEM_DERIVED_NUMERIC_COLUMNS = CHEM_22_NUMERIC_COLUMNS + [
+    "voltage_window",
+    "voltage_mid",
+    "Ni_to_Mn",
+    "Ni_to_Co",
+    "Li_to_TM",
+    "active_to_binder",
+    "total_transition_metal",
+]
+CHEM_DERIVED_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS
+CHEM_DERIVED_FEATURE_COLUMNS = CHEM_DERIVED_NUMERIC_COLUMNS + CHEM_DERIVED_CATEGORICAL_COLUMNS
 
 REQUIRED_COLUMNS = sorted(set([TARGET_COLUMN, *CORE_FEATURE_COLUMNS]))
 EXPECTED_SOURCE_FAMILIES = ("LFP", "NCA", "NCM", "Others")
+SUPPORTED_FEATURE_SETS = ("core_11", "design_15", "chem_22", "chem_derived")
 
 
 def get_feature_columns(feature_set: str = "core_11") -> list[str]:
@@ -131,8 +156,8 @@ def get_feature_columns(feature_set: str = "core_11") -> list[str]:
         return list(DESIGN_15_FEATURE_COLUMNS)
     if feature_set == "chem_22":
         return list(CHEM_22_FEATURE_COLUMNS)
-    if feature_set in {"official", "full"}:
-        return list(OFFICIAL_FEATURE_COLUMNS)
+    if feature_set == "chem_derived":
+        return list(CHEM_DERIVED_FEATURE_COLUMNS)
     raise ValueError(f"Unsupported feature_set: {feature_set!r}")
 
 
@@ -144,8 +169,8 @@ def get_numeric_columns(feature_set: str = "core_11") -> list[str]:
         return list(DESIGN_15_NUMERIC_COLUMNS)
     if feature_set == "chem_22":
         return list(CHEM_22_NUMERIC_COLUMNS)
-    if feature_set in {"official", "full"}:
-        return list(OFFICIAL_NUMERIC_COLUMNS)
+    if feature_set == "chem_derived":
+        return list(CHEM_DERIVED_NUMERIC_COLUMNS)
     raise ValueError(f"Unsupported feature_set: {feature_set!r}")
 
 
@@ -157,6 +182,6 @@ def get_categorical_columns(feature_set: str = "core_11") -> list[str]:
         return list(DESIGN_15_CATEGORICAL_COLUMNS)
     if feature_set == "chem_22":
         return list(CHEM_22_CATEGORICAL_COLUMNS)
-    if feature_set in {"official", "full"}:
-        return list(OFFICIAL_CATEGORICAL_COLUMNS)
+    if feature_set == "chem_derived":
+        return list(CHEM_DERIVED_CATEGORICAL_COLUMNS)
     raise ValueError(f"Unsupported feature_set: {feature_set!r}")

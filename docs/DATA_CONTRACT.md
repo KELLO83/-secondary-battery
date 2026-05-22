@@ -159,68 +159,60 @@ binder_proportion
 | `active_proportion` | numeric | 전극 내 활물질 비율 |
 | `binder_proportion` | numeric | 전극 내 바인더 비율 |
 
-### `official`, 후속 ablation/benchmark 후보
+### `chem_derived`, 후순위 feature engineering 모델
 
-AI Hub 공식 학습 기준 feature set이다.
-
-사용 칼럼:
+`chem_22`를 기반으로 누수 없이 계산 가능한 도메인 파생변수를 추가한다.
 
 ```text
-material_structure
-synthesis_method
-sintering_T1(C)
-sintering_t1(h)
-Li_source
-Co_source
-Mn_source
-Ni_source
-electrolyte
-counter_electrode
-separator
-measurement_T(C)
-Li_fraction
-Ni_fraction
-Mn_fraction
-Co_fraction
-dopant_fraction
-active_proportion
-binder_proportion
-particle_size(um)
-C-rate
+chem_22
+voltage_window
+voltage_mid
+Ni_to_Mn
+Ni_to_Co
+Li_to_TM
+active_to_binder
+total_transition_metal
+```
+
+파생 입력 7개:
+
+| 파생 칼럼 | 수식 | 의미 |
+| :--- | :--- | :--- |
+| `voltage_window` | `voltage_range(V)_max - voltage_range(V)_min` | 사용 전압 범위 |
+| `voltage_mid` | `(voltage_range(V)_max + voltage_range(V)_min) / 2` | 중심 전압 |
+| `Ni_to_Mn` | `Ni_fraction / (Mn_fraction + eps)` | Ni/Mn 조성비 |
+| `Ni_to_Co` | `Ni_fraction / (Co_fraction + eps)` | Ni/Co 조성비 |
+| `Li_to_TM` | `Li_fraction / (Ni_fraction + Mn_fraction + Co_fraction + eps)` | Li/전이금속 비율 |
+| `active_to_binder` | `active_proportion / (binder_proportion + eps)` | 활물질/바인더 비율 |
+| `total_transition_metal` | `Ni_fraction + Mn_fraction + Co_fraction` | 주요 전이금속 총량 |
+
+규칙:
+
+- `chem_derived`는 `chem_22` 이후의 별도 feature set이다.
+- `core_11`과 `chem_22`는 원본 feature set으로 보존한다.
+- `chem_derived`는 `remain_capacity`, `discharge_capacity (mAh/g)`, `state_of_charge`를 사용해 계산하지 않는다.
+- 먼저 LightGBM으로 `chem_22` 대비 효용을 검증한 뒤, 유망할 때 CatBoost/TabM/NODE/TabPFN 계열로 확장한다.
+
+### 금지된 legacy/raw-full 입력 조합
+
+과거 검토된 `official`/raw-full 입력 조합은 현재 CSV에서 target과 metadata만 제외하고 대부분의 칼럼을 feature로 넣는 방식이었다. 이 조합은 아래 target-derived leakage 칼럼을 포함하므로 실행 가능한 feature set으로 제공하지 않는다.
+
+```text
 discharge_capacity (mAh/g)
-Strain
 state_of_charge
-space_group_symbol
-length_a
-length_b
-length_c
-angle_alpha
-angle_beta
-angle_gamma
-volume
-density
-interlayer_dist
-energy
-tm_o_bond_length
-perc_barrier_1d
-perc_barrier_2d
-perc_radius_1d
-perc_radius_2d
-max_packing_eff
-chemical_ordering
-struct_hetero_bond
-struct_hetero_cell
-voltage_range(V)_min
-voltage_range(V)_max
 ```
 
-제외 칼럼:
+이유:
 
 ```text
-material_id
-remain_capacity
-source_family
+remain_capacity = discharge_capacity (mAh/g) * state_of_charge / 100
 ```
+
+규칙:
+
+- `official`은 코드에서 feature set 이름으로 지원하지 않는다.
+- 48개 raw column 전체를 자동 feature로 넣는 학습은 금지한다.
+- 과거 결과가 있더라도 leakage artifact로만 기록하고 leaderboard/운영 후보 선정에 사용하지 않는다.
 
 기본값:
 
@@ -228,13 +220,13 @@ source_family
 1차 모델 개발: core_11
 agent/design-oriented experiment: core_11
 후속 성능 개선 후보: design_15, chem_22
-후속 ablation/benchmark: official
+후속 feature engineering 후보: chem_derived
 ```
 
 중요:
 
 - 1차 모델 개발에서는 `core_11`만 사용한다.
-- `design_15`, `chem_22`, `official`은 `core_11`에서 우수한 모델군을 찾은 뒤 별도 모델로 학습/평가한다.
+- `design_15`, `chem_22`, `chem_derived`는 `core_11`에서 우수한 모델군을 찾은 뒤 별도 모델로 학습/평가한다.
 - 48개 raw column 전체를 자동 feature로 넣는 학습은 금지한다.
 
 ## 3. Feature 계약

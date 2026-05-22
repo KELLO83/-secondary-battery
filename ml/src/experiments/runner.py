@@ -69,7 +69,7 @@ def run_sklearn_baseline(
 
     start_train = time.perf_counter()
     LOGGER.info("Training started")
-    model.fit(train.X, train.y)
+    model.fit(train.X, train.y, valid.X, valid.y)
     train_time = time.perf_counter() - start_train
     LOGGER.info("Training completed in %.3f sec", train_time)
 
@@ -82,10 +82,13 @@ def run_sklearn_baseline(
     valid_metrics = regression_metrics(valid.y, valid_pred)
     family_metrics = metrics_by_group(valid.y, valid_pred, valid.source_family)
     LOGGER.info(
-        "Validation metrics: mape=%.6f mae=%.6f rmse=%.6f rows=%s",
-        valid_metrics.mape,
-        valid_metrics.mae,
+        "Validation metrics: rmse=%.6f mae=%.6f wape=%.6f smape=%.6f filtered_mape=%.6f raw_mape=%.6f rows=%s",
         valid_metrics.rmse,
+        valid_metrics.mae,
+        valid_metrics.wape,
+        valid_metrics.smape,
+        valid_metrics.filtered_mape,
+        valid_metrics.mape,
         valid_metrics.n_rows,
     )
     logged_model_params = model.config.get("params", {})
@@ -119,11 +122,24 @@ def run_sklearn_baseline(
         "valid_mape": valid_metrics.mape,
         "valid_mae": valid_metrics.mae,
         "valid_rmse": valid_metrics.rmse,
+        "valid_wape": valid_metrics.wape,
+        "valid_smape": valid_metrics.smape,
+        "valid_filtered_mape": valid_metrics.filtered_mape,
+        "valid_filtered_mape_threshold": valid_metrics.filtered_mape_threshold,
+        "valid_filtered_mape_n_rows": valid_metrics.filtered_mape_n_rows,
         "test_mape": "",
         "test_mae": "",
         "test_rmse": "",
+        "test_wape": "",
+        "test_smape": "",
+        "test_filtered_mape": "",
+        "test_filtered_mape_threshold": "",
+        "test_filtered_mape_n_rows": "",
         "source_family_metrics": family_metrics,
-        "notes": "Integrated model; source_family excluded from features.",
+        "notes": (
+            "Integrated model; source_family excluded from features. "
+            "Raw MAPE is diagnostic only because zero/near-zero targets inflate percentage error."
+        ),
     }
     append_experiment_result(output_path, row)
     LOGGER.info("Experiment result saved: %s", output_path)

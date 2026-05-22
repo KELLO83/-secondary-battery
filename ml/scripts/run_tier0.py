@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--sample-size", type=int, default=100_000)
     parser.add_argument("--valid-sample-size", type=int, default=50_000)
-    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "official"], default="core_11")
+    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "chem_derived"], default="core_11")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, default=Path("results/experiments.csv"))
     return parser.parse_args()

@@ -8,6 +8,8 @@
 
 ## 2. 공통 실험 조건
 
+대형 실험 실행 전 GPU/OOM, TabPFN token/checkpoint, AutoGluon/Mitra 설치 조건은 `docs/RUN_RISK_CHECKLIST.md`를 확인한다.
+
 ### 2.0 Pretrained Weight 사용 정책
 
 공식 pretrained checkpoint 또는 foundation model weight가 공개되어 있는 모델은 기본적으로 pretrained weight를 사용한다.
@@ -15,6 +17,8 @@
 적용 대상:
 
 - TabPFN-3
+- TabPFN latest, 기본 v3
+- TabPFN-2.6, fallback 필요 시
 - TabPFN-2.5, fallback 필요 시
 - TabICLv2
 - TabICL, fallback 필요 시
@@ -28,20 +32,31 @@
 - fine-tuning을 수행하는 경우 zero/few-shot 또는 in-context 결과와 별도 실험으로 기록한다.
 - pretrained weight를 사용할 수 없는 경우 임의로 from-scratch 결과로 대체하지 않고, 사유를 `notes`에 기록한다.
 - TabPFN 계열은 Prior Labs 라이선스 승인과 token 또는 local checkpoint가 필요할 수 있다. 정식 실험은 브라우저 로그인 프롬프트에 의존하지 않고 `TABPFN_TOKEN`, cached token, 또는 local `model_path`를 사용한다.
+- TabPFN-3 기준 공개 문서상 권장 규모는 feature 수와 trade-off가 있으며, `core_11`/`design_15`/`chem_22`처럼 feature 수가 적은 경우 100k~1M row sample 실험을 명시적으로 허용한다.
+- TabPFN-2.6 fallback은 100k row급까지 우선 검토하고, TabPFN-2.5 fallback은 50k~100k row급으로 제한한다.
+- TabPFN Enterprise/API Scaling Mode 또는 Large Data Mode는 공개 로컬 패키지와 분리된 접근 경로로 기록하며, 라이선스/비용/업로드 제한을 확인하기 전에는 기본 실험으로 간주하지 않는다.
 
 구현 정책:
 
 - 외부 pip/오픈소스 구현이 있는 모델은 프로젝트 내부에 모델 본체를 재구현하지 않는다.
+- 가능한 한 GitHub/Hugging Face/PyPI에서 제공되는 공식 또는 널리 검증된 구현체를 import해서 사용한다.
+- 프로젝트 내부 모델 파일은 학습 파이프라인에 맞추기 위한 wrapper 역할만 수행한다.
+- 직접 구현이 필요한 경우에는 먼저 공식 패키지 부재, 회귀 미지원, Python/CUDA 버전 미지원 등 사유를 문서화한다.
 - 모델별 wrapper 파일은 모델별로 분리한다.
   - `ml/src/models/neural/RealMLP.py`
   - `ml/src/models/neural/TabM.py`
+  - `ml/src/models/neural/TabR.py`
   - `ml/src/models/neural/DCNV2.py`
+  - `ml/src/models/neural/Node.py`
   - `ml/src/models/transformer/FTTransformer.py`
   - `ml/src/models/transformer/TabTransformer.py`
   - `ml/src/models/transformer/TabNet.py`
   - `ml/src/models/foundation/TabPFN.py`
+  - `ml/src/models/foundation/TabPFNLatest.py`
   - `ml/src/models/foundation/TabICLv2.py`
-- `TabPFN.py`와 `TabICLv2.py`는 공식 pretrained regressor를 import해서 사용하며 from-scratch 학습하지 않는다.
+  - `ml/src/models/foundation/AutoGluonMitra.py`
+- `TabPFN.py`, `TabPFNLatest.py`, `TabICLv2.py`는 공식 pretrained regressor를 import해서 사용하며 from-scratch 학습하지 않는다.
+- `AutoGluonMitra.py`는 AutoGluon의 `TabularPredictor`와 `MITRA` hyperparameter를 사용하며, ceiling benchmark로만 취급한다.
 - 선택 dependency는 `ml/requirements-optional-dl.txt`에 둔다.
 - `ml/requirements-optional-dl.txt`는 `.venv314` 기준으로 설치한다.
 - LightGBM만 `.venv314t`에서 실행하고, LightGBM을 제외한 모든 모델은 `.venv314`에서 실행한다.
@@ -59,7 +74,10 @@ Tabular foundation model 계열은 공식 pretrained weight를 사용해 별도 
 - TabICLv2
 - TabICL
 - TabPFN-3
+- TabPFN latest, 기본 v3
+- TabPFN-2.6, fallback 필요 시
 - TabPFN-2.5, fallback 필요 시
+- AutoGluon/Mitra, ceiling benchmark only
 
 원칙:
 
@@ -83,9 +101,12 @@ zero_shot
 
 모든 모델은 다음 지표를 기록한다.
 
-- MAPE
-- MAE
 - RMSE
+- MAE
+- WAPE
+- SMAPE
+- filtered MAPE, `abs(remain_capacity) > 5`
+- raw MAPE, diagnostic only
 - 학습 시간
 - 추론 시간
 - peak memory
@@ -137,7 +158,7 @@ Feature set 기본값:
 phase 1/default: core_11
 agent/design-oriented: core_11
 phase 2 candidates: design_15, chem_22
-ablation/benchmark: official
+phase 3 feature engineering: chem_derived
 ```
 
 원칙:
@@ -145,8 +166,11 @@ ablation/benchmark: official
 - 1차 모델 개발은 `core_11`만 사용한다.
 - `core_11`은 연구원이 직접 입력하기 쉬운 11개 핵심 feature만 사용한다.
 - 먼저 `core_11`에서 우수한 모델군과 기본 hyperparameter 범위를 찾는다.
-- `design_15`, `chem_22`, `official`은 `core_11` 결과가 나온 뒤 후순위 별도 모델로 비교한다.
-- 1차 실험에서 48개 CSV 칼럼 전체 또는 `official` feature set을 기본으로 사용하지 않는다.
+- `design_15`, `chem_22`는 `core_11` 결과가 나온 뒤 후순위 별도 모델로 비교한다.
+- `chem_derived`는 `chem_22` 이후의 feature engineering 검증용 별도 feature set으로만 사용한다.
+- 1차 실험에서 48개 CSV 칼럼 전체를 feature로 사용하지 않는다.
+- `official`/raw-full feature set은 실행 옵션으로 제공하지 않는다.
+- `discharge_capacity (mAh/g)`와 `state_of_charge`는 `remain_capacity`를 직접 복원할 수 있으므로 모든 정상 실험에서 제외한다.
 
 후순위 feature 확장:
 
@@ -154,8 +178,20 @@ ablation/benchmark: official
 | :--- | :--- | :--- |
 | `design_15` | `sintering_T1(C)`, `sintering_t1(h)`, `measurement_T(C)`, `C-rate` | 합성/측정 조건까지 입력받는 확장 모델 |
 | `chem_22` | `Li_fraction`, `Ni_fraction`, `Mn_fraction`, `Co_fraction`, `dopant_fraction`, `active_proportion`, `binder_proportion` | 조성비와 전극 구성 비율까지 입력받는 확장 모델 |
+| `chem_derived` | `voltage_window`, `voltage_mid`, `Ni_to_Mn`, `Ni_to_Co`, `Li_to_TM`, `active_to_binder`, `total_transition_metal` | `chem_22` 기반 합법 도메인 파생변수 |
 
-`design_15`와 `chem_22`는 `core_11` 모델과 입력 스키마가 다르므로 같은 실험 ID 또는 같은 leaderboard 행으로 섞지 않는다.
+`design_15`, `chem_22`, `chem_derived`는 `core_11` 모델과 입력 스키마가 다르므로 같은 실험 ID 또는 같은 leaderboard 행으로 섞지 않는다.
+
+파생변수 실험 순서:
+
+1. LightGBM `chem_22`
+2. LightGBM `chem_derived`
+3. `chem_derived`가 RMSE/MAE/WAPE에서 의미 있게 개선될 때만 CatBoost, TabM, NODE, TabPFN/TabICL로 확장
+
+금지:
+
+- `core_11`에 파생변수를 섞지 않는다.
+- `remain_capacity`, `discharge_capacity (mAh/g)`, `state_of_charge`를 파생변수 계산에 사용하지 않는다.
 
 후속 검토 조건:
 
@@ -241,7 +277,8 @@ early_stopping_rounds: 100
 
 - categorical feature를 명시한다.
 - one-hot encoding은 보조 실험으로만 사용한다.
-- MAPE는 별도 함수로 계산한다.
+- raw MAPE는 별도 함수로 계산하되 최종 순위 기준으로 사용하지 않는다.
+- RMSE/MAE/WAPE를 primary metric으로 사용한다.
 
 ### 4.2 CatBoost
 
@@ -295,7 +332,9 @@ early_stopping_rounds: 100
 
 - RealMLP
 - TabM
+- TabR
 - DCN-V2
+- NODE
 
 ### 5.1 RealMLP
 
@@ -353,7 +392,39 @@ weight_decay: [1e-6, 1e-5, 1e-4]
 epochs: [20, 50, 100]
 ```
 
-### 5.3 DCN-V2
+### 5.3 TabR
+
+역할:
+
+- retrieval-augmented tabular deep learning 후보
+- 유사 소재/레시피 row를 검색해 예측에 활용하는 구조가 `core_11`의 부족한 정보량을 일부 보완할 수 있는지 확인
+- full-data 직접 retrieval은 비용이 클 수 있으므로 sample/index size를 단계적으로 키운다.
+
+Sample size:
+
+- 50k
+- 100k
+- 500k
+- 1M, 가능하면
+
+기본 sweep:
+
+```yaml
+context_size: [32, 64, 96, 128]
+batch_size: [1024, 2048, 4096]
+candidate_encoding_batch_size: [8192, 16384, 32768]
+memory_efficient: [true]
+learning_rate: [1e-4, 3e-4, 1e-3]
+epochs: [20, 50, 100]
+```
+
+주의:
+
+- `ml/src/models/neural/TabR.py`는 `pytabkit`의 `RealTabR_D_Regressor`를 import해서 사용한다.
+- retrieval 후보군이 커질수록 GPU memory와 추론 시간이 급격히 증가할 수 있다.
+- LightGBM/CatBoost와 동일 sample 조건에서만 성능을 비교한다.
+
+### 5.4 DCN-V2
 
 역할:
 
@@ -392,6 +463,41 @@ early_stopping_patience: 5
 - 동일 split
 - 동일 feature set
 
+### 5.5 NODE
+
+역할:
+
+- differentiable oblivious decision tree ensemble 기반 neural baseline
+- GBDT와 MLP/Transformer 사이의 tree-like neural inductive bias를 비교
+- DCN-V2와 함께 feature interaction을 neural 방식으로 학습할 수 있는지 검증
+
+Sample size:
+
+- 100k
+- 500k
+- 1M, 성능이 유망하면
+- full data는 후순위
+
+기본 sweep:
+
+```yaml
+num_layers: [1, 2, 3]
+num_trees: [512, 1024, 2048]
+depth: [4, 6, 8]
+additional_tree_output_dim: [2, 3]
+choice_function: ["entmax15", "sparsemax"]
+bin_function: ["entmoid15", "sparsemoid"]
+batch_size: [1024, 2048, 4096]
+learning_rate: [1e-4, 3e-4, 1e-3]
+epochs: [20, 50, 100]
+```
+
+주의:
+
+- `ml/src/models/neural/Node.py`는 `pytorch-tabular`의 `NodeConfig`와 `TabularModel`을 import해서 사용한다.
+- 직접 NODE 아키텍처를 재구현하지 않는다.
+- 같은 sample/split/feature set에서 LightGBM, CatBoost, DCN-V2와 비교한다.
+
 ## 6. Tier 3: Transformer / Foundation Model
 
 목적:
@@ -404,6 +510,7 @@ early_stopping_patience: 5
 - FT-Transformer
 - TabTransformer
 - TabPFN-3
+- TabPFN latest, 기본 `v3`
 - TabICLv2
 - TabNet
 
@@ -471,13 +578,14 @@ epochs: [20, 50, 100]
 - 공식 pretrained checkpoint 또는 API 모델 사용을 기본값으로 둔다.
 - 기본 training mode는 `pretrained_inference` 또는 `in_context`이다.
 - Prior Labs 라이선스 승인/token 또는 local checkpoint가 없으면 실험을 실패 처리하고, 임의 from-scratch 대체를 금지한다.
+- `core_11` 기준 feature 수가 작으므로 50k~1M sample까지 단계적으로 검증한다.
 
 Sample size:
 
 - 50k
 - 100k
 - 500k
-- 1M, 가능하면
+- 1M, GPU memory/라이선스/실행 시간이 허용되면 우선 검토
 
 주의:
 
@@ -485,6 +593,12 @@ Sample size:
 - local OSS, API, Hugging Face checkpoint 사용 여부를 기록한다.
 - full-data GBDT와 직접 비교하지 않고 동일 sample 조건에서 비교한다.
 - 사용 버전, checkpoint, API endpoint를 결과에 기록한다.
+- 코드에서는 `tabpfn`과 `tabpfn_latest`를 분리한다.
+- `tabpfn_latest`는 기본적으로 `ModelVersion.V3`를 요청하되, 라이선스/token/local checkpoint가 없으면 실패 처리한다.
+- TabPFN-3 공개 로컬/OSS 경로는 전체 16.3M건 학습용 기본 모델로 전제하지 않는다.
+- TabPFN-3는 100k~1M row sample SOTA 비교 후보로 취급한다.
+- TabPFN-2.6 fallback은 100k row급까지, TabPFN-2.5 fallback은 50k~100k row급까지 우선 비교한다.
+- Enterprise/API Scaling Mode 또는 Large Data Mode로 1M 초과 실험을 수행할 경우, 일반 `tabpfn_latest` 결과와 분리해 `access_mode`, 비용, 라이선스, upload limit, data governance 조건을 기록한다.
 
 기록 항목:
 
@@ -560,11 +674,12 @@ learning_rate: [1e-3, 3e-3]
 epochs: [50, 100]
 ```
 
-## 7. AutoGluon 선택 실험
+## 7. AutoGluon/Mitra Ceiling Benchmark
 
 역할:
 
 - 단일 모델 실험 이후 score ceiling을 확인하는 AutoML/ensemble 후보
+- Mitra는 AutoGluon의 tabular foundation model 후보로, `MITRA` hyperparameter를 명시해 별도 ceiling benchmark로 실행한다.
 
 실행 시점:
 
@@ -574,6 +689,8 @@ epochs: [50, 100]
 
 - AutoGluon 결과는 단일 모델 결과와 분리하여 기록한다.
 - 내부에 GBDT, neural, foundation model이 섞일 수 있으므로 모델별 원인 분석에는 부적합하다.
+- `autogluon_mitra`는 ceiling benchmark이며 최종 단일 모델 순위와 섞지 않는다.
+- 설치는 `.venv314`에서 `uv pip install autogluon.tabular[mitra]`를 기본으로 검토한다.
 - time limit을 반드시 기록한다.
 
 Sample size:
@@ -613,19 +730,22 @@ Sample size:
 6. RealMLP 100k/500k
 7. DCN-V2 100k/500k
 8. TabM 100k/500k
-9. FT-Transformer 50k/100k
-10. TabPFN-3 50k/100k
-11. TabICLv2 50k/100k
-12. 상위 모델만 500k/1M 확장
+9. NODE 100k/500k
+10. FT-Transformer 50k/100k
+11. TabPFN-3 50k/100k/500k
+12. TabICLv2 50k/100k/500k
+13. 상위 foundation 모델만 1M 확장
 13. GBDT full-data 실행
 14. 최종 Pareto 분석
 ```
 
 ## 10. 모델별 중단 조건
 
+공통 실행 리스크 체크는 `docs/RUN_RISK_CHECKLIST.md`를 기준으로 한다.
+
 공통 중단 조건:
 
-- 같은 sample/split에서 LightGBM 대비 MAPE가 20% 이상 나쁘고 개선 가능성이 낮음
+- 같은 sample/split에서 LightGBM 대비 RMSE 또는 MAE가 20% 이상 나쁘고 개선 가능성이 낮음
 - 학습 시간이 같은 sample의 GBDT 대비 10배 이상이며 성능 이득이 없음
 - OOM이 반복 발생하고 batch/model 축소 후에도 해결되지 않음
 - 라이선스 또는 접근 조건이 실험 목적과 맞지 않음
@@ -642,8 +762,9 @@ Foundation model 중단 조건:
 
 우선순위:
 
-1. group split test MAPE
-2. group split test MAE/RMSE
+1. group split test RMSE
+2. group split test MAE
+3. group split test WAPE
 3. random split과 group split의 성능 차이
 4. 학습 시간
 5. 추론 시간
