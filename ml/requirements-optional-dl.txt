@@ -1,0 +1,10 @@
+# Optional deep/foundation model dependencies.
+# Install only in a compatible environment with official wheels.
+# Do not source-build packages in .venv314t unless explicitly approved.
+pytabkit
+tabpfn
+tabicl
+tabm
+deepctr-torch
+pytorch-tabnet
+tabular-transformers
