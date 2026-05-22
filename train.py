@@ -1,8 +1,7 @@
-"""Train one tabular remain_capacity model experiment.
+"""Train one NASA battery cycle-level tabular model experiment.
 
-This is the top-level CLI for the AI Hub 71869 battery tabular regression
-track. One invocation runs exactly one model experiment and writes metrics to
-the configured results CSV/log file.
+One invocation runs exactly one model experiment and writes metrics to the
+configured results CSV/log file.
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ TRANSFORMER_MODELS = ["ft_transformer", "tab_transformer", "tabnet"]
 FOUNDATION_MODELS = ["tabpfn", "tabpfn_latest", "tabiclv2"]
 CEILING_MODELS = ["autogluon_mitra"]
 MODEL_CHOICES = GBDT_MODELS + NEURAL_MODELS + TRANSFORMER_MODELS + FOUNDATION_MODELS + CEILING_MODELS
-FEATURE_SET_CHOICES = ["core_11", "design_15", "chem_22", "chem_derived"]
+FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
 
 
 def parse_key_value(raw: str) -> tuple[str, Any]:
@@ -56,11 +55,11 @@ def parse_key_value(raw: str) -> tuple[str, Any]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", choices=MODEL_CHOICES, default="lightgbm")
-    parser.add_argument("--feature-set", choices=FEATURE_SET_CHOICES, default="core_11")
+    parser.add_argument("--feature-set", choices=FEATURE_SET_CHOICES, default="discharge_summary")
     parser.add_argument("--sample-size", type=int, default=100_000)
     parser.add_argument("--valid-sample-size", type=int, default=50_000)
-    parser.add_argument("--full-data", action="store_true", help="Train on all integrated Training CSV rows.")
-    parser.add_argument("--valid-full-data", action="store_true", help="Evaluate on all integrated Validation CSV rows.")
+    parser.add_argument("--full-data", action="store_true", help="Train on all NASA train split rows.")
+    parser.add_argument("--valid-full-data", action="store_true", help="Evaluate on all NASA validation split rows.")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, default=Path("results/experiments.csv"))
     parser.add_argument("--log-file", type=Path, default=None)

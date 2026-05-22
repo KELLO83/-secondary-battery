@@ -1,4 +1,4 @@
-"""Run one ML/DL/foundation model experiment on integrated battery CSVs."""
+"""Run one ML/DL/foundation model experiment on NASA cycle-level data."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ MODEL_CHOICES = [
     "tabiclv2",
     "autogluon_mitra",
 ]
+FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,9 +40,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", choices=MODEL_CHOICES, required=True)
     parser.add_argument("--sample-size", type=int, default=100_000)
     parser.add_argument("--valid-sample-size", type=int, default=50_000)
-    parser.add_argument("--full-data", action="store_true", help="Train on the full integrated Training CSVs.")
-    parser.add_argument("--valid-full-data", action="store_true", help="Evaluate on all Validation CSV rows.")
-    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "chem_derived"], default="core_11")
+    parser.add_argument("--full-data", action="store_true", help="Train on all NASA train split rows.")
+    parser.add_argument("--valid-full-data", action="store_true", help="Evaluate on all NASA validation split rows.")
+    parser.add_argument("--feature-set", choices=FEATURE_SET_CHOICES, default="discharge_summary")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, default=Path("results/experiments.csv"))
     parser.add_argument("--device", default=None, help="Optional device for neural/foundation models, e.g. cuda or cpu.")
@@ -76,9 +77,9 @@ def main() -> None:
     )
     print(
         f"{result['experiment_id']}: "
-        f"valid_mape={result['valid_mape']:.4f}, "
         f"valid_mae={result['valid_mae']:.4f}, "
-        f"valid_rmse={result['valid_rmse']:.4f}"
+        f"valid_rmse={result['valid_rmse']:.4f}, "
+        f"valid_wape={result['valid_wape']:.4f}"
     )
 
 

@@ -1,4 +1,4 @@
-"""DCN-V2 wrapper using the external deepctr-torch implementation."""
+﻿"""DCN-V2 wrapper using the external deepctr-torch implementation."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class DCNV2Model(BaseModel):
     name = "dcnv2"
     family = "neural"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,
@@ -132,3 +132,4 @@ class DCNV2Model(BaseModel):
             values = pd.to_numeric(X[col], errors="coerce").fillna(self.numeric_medians[col])
             result[col] = ((values - self.numeric_means[col]) / self.numeric_stds[col]).to_numpy(dtype=np.float32)
         return result
+

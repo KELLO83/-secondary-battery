@@ -1,187 +1,93 @@
-"""Dataset schema constants for AI Hub battery data."""
+"""Dataset schema constants for the NASA battery cycle-level track."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-TARGET_COLUMN = "remain_capacity"
-SOURCE_FAMILY_COLUMN = "source_family"
+RAW_NASA_ROOT = Path("data/nasa_battery_raw/cleaned_dataset")
+NASA_METADATA_FILE = RAW_NASA_ROOT / "metadata.csv"
+NASA_SIGNAL_DIR = RAW_NASA_ROOT / "data"
+PROCESSED_DATA_DIR = Path("data/processed")
+NASA_CYCLE_LEVEL_FILE = PROCESSED_DATA_DIR / "nasa_cycle_level.csv"
 
-TRAIN_FILES = {
-    "LFP": Path("Training/LFP_train_dataset.csv"),
-    "NCA": Path("Training/NCA_train_dataset.csv"),
-    "NCM": Path("Training/NCM_train_dataset.csv"),
-    "Others": Path("Training/others_train_dataset.csv"),
+TARGET_COLUMN = "capacity"
+SOURCE_FAMILY_COLUMN = "battery_id"
+
+NASA_CATEGORICAL_COLUMNS = [
+    "battery_id",
+]
+
+NASA_BASE_NUMERIC_COLUMNS = [
+    "cycle_index",
+    "test_id",
+    "ambient_temperature",
+]
+
+NASA_SIGNAL_NUMERIC_COLUMNS = [
+    "sample_count",
+    "duration_sec",
+    "voltage_measured_first",
+    "voltage_measured_last",
+    "voltage_measured_min",
+    "voltage_measured_max",
+    "voltage_measured_mean",
+    "voltage_measured_std",
+    "current_measured_first",
+    "current_measured_last",
+    "current_measured_min",
+    "current_measured_max",
+    "current_measured_mean",
+    "current_measured_std",
+    "temperature_measured_first",
+    "temperature_measured_last",
+    "temperature_measured_min",
+    "temperature_measured_max",
+    "temperature_measured_mean",
+    "temperature_measured_std",
+    "current_load_first",
+    "current_load_last",
+    "current_load_min",
+    "current_load_max",
+    "current_load_mean",
+    "current_load_std",
+    "voltage_load_first",
+    "voltage_load_last",
+    "voltage_load_min",
+    "voltage_load_max",
+    "voltage_load_mean",
+    "voltage_load_std",
+    "voltage_drop",
+    "mean_power_measured",
+    "integrated_abs_current",
+]
+
+NASA_HEALTH_NUMERIC_COLUMNS = NASA_BASE_NUMERIC_COLUMNS + NASA_SIGNAL_NUMERIC_COLUMNS + [
+    "soh",
+]
+
+NASA_FEATURE_SETS = {
+    "cycle_basic": NASA_BASE_NUMERIC_COLUMNS + NASA_CATEGORICAL_COLUMNS,
+    "discharge_summary": NASA_BASE_NUMERIC_COLUMNS + NASA_SIGNAL_NUMERIC_COLUMNS + NASA_CATEGORICAL_COLUMNS,
+    "discharge_health": NASA_HEALTH_NUMERIC_COLUMNS + NASA_CATEGORICAL_COLUMNS,
 }
 
-TRAIN_ROW_COUNTS = {
-    "LFP": 131_790,
-    "NCA": 769_225,
-    "NCM": 8_750_613,
-    "Others": 3_409_068,
-}
-
-VALIDATION_FILES = {
-    "LFP": Path("Validation/LFP_val_dataset.csv"),
-    "NCA": Path("Validation/NCA_val_dataset.csv"),
-    "NCM": Path("Validation/NCM_val_dataset.csv"),
-    "Others": Path("Validation/others_val_dataset.csv"),
-}
-
-VALIDATION_ROW_COUNTS = {
-    "LFP": 16_474,
-    "NCA": 96_153,
-    "NCM": 1_093_827,
-    "Others": 426_133,
-}
-
-CORE_NUMERIC_COLUMNS = [
-    "voltage_range(V)_min",
-    "voltage_range(V)_max",
-]
-
-CORE_CATEGORICAL_COLUMNS = [
-    "material_structure",
-    "synthesis_method",
-    "Li_source",
-    "Ni_source",
-    "Co_source",
-    "Mn_source",
-    "electrolyte",
-    "separator",
-    "counter_electrode",
-]
-
-EXTENDED_NUMERIC_COLUMNS = [
-    "sintering_T1(C)",
-    "sintering_t1(h)",
-    "measurement_T(C)",
-    "Li_fraction",
-    "Ni_fraction",
-    "Mn_fraction",
-    "Co_fraction",
-    "dopant_fraction",
-    "active_proportion",
-    "binder_proportion",
-    "particle_size(um)",
-    "C-rate",
-    "discharge_capacity (mAh/g)",
-    "Strain",
-    "state_of_charge",
-    "length_a",
-    "length_b",
-    "length_c",
-    "angle_alpha",
-    "angle_beta",
-    "angle_gamma",
-    "volume",
-    "density",
-    "interlayer_dist",
-    "energy",
-    "tm_o_bond_length",
-    "perc_barrier_1d",
-    "perc_barrier_2d",
-    "perc_radius_1d",
-    "perc_radius_2d",
-    "max_packing_eff",
-    "chemical_ordering",
-    "struct_hetero_bond",
-    "struct_hetero_cell",
-]
-
-TARGET_DERIVED_LEAKAGE_COLUMNS = [
-    "discharge_capacity (mAh/g)",
-    "state_of_charge",
-]
-
-EXTENDED_CATEGORICAL_COLUMNS = [
-    "space_group_symbol",
-]
-
-METADATA_COLUMNS = [
-    "material_id",
-    "chemical_formula",
-    "DOI",
-    "journal_name",
-    "Class",
-    "Unnamed: 0",
-    SOURCE_FAMILY_COLUMN,
-]
-
-CORE_FEATURE_COLUMNS = CORE_NUMERIC_COLUMNS + CORE_CATEGORICAL_COLUMNS
-CORE_11_NUMERIC_COLUMNS = CORE_NUMERIC_COLUMNS
-CORE_11_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS
-CORE_11_FEATURE_COLUMNS = CORE_FEATURE_COLUMNS
-DESIGN_15_NUMERIC_COLUMNS = CORE_NUMERIC_COLUMNS + [
-    "sintering_T1(C)",
-    "sintering_t1(h)",
-    "measurement_T(C)",
-    "C-rate",
-]
-DESIGN_15_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS
-DESIGN_15_FEATURE_COLUMNS = DESIGN_15_NUMERIC_COLUMNS + DESIGN_15_CATEGORICAL_COLUMNS
-CHEM_22_NUMERIC_COLUMNS = DESIGN_15_NUMERIC_COLUMNS + [
-    "Li_fraction",
-    "Ni_fraction",
-    "Mn_fraction",
-    "Co_fraction",
-    "dopant_fraction",
-    "active_proportion",
-    "binder_proportion",
-]
-CHEM_22_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS
-CHEM_22_FEATURE_COLUMNS = CHEM_22_NUMERIC_COLUMNS + CHEM_22_CATEGORICAL_COLUMNS
-CHEM_DERIVED_NUMERIC_COLUMNS = CHEM_22_NUMERIC_COLUMNS + [
-    "voltage_window",
-    "voltage_mid",
-    "Ni_to_Mn",
-    "Ni_to_Co",
-    "Li_to_TM",
-    "active_to_binder",
-    "total_transition_metal",
-]
-CHEM_DERIVED_CATEGORICAL_COLUMNS = CORE_CATEGORICAL_COLUMNS
-CHEM_DERIVED_FEATURE_COLUMNS = CHEM_DERIVED_NUMERIC_COLUMNS + CHEM_DERIVED_CATEGORICAL_COLUMNS
-
-REQUIRED_COLUMNS = sorted(set([TARGET_COLUMN, *CORE_FEATURE_COLUMNS]))
-EXPECTED_SOURCE_FAMILIES = ("LFP", "NCA", "NCM", "Others")
-SUPPORTED_FEATURE_SETS = ("core_11", "design_15", "chem_22", "chem_derived")
+SUPPORTED_FEATURE_SETS = tuple(NASA_FEATURE_SETS)
+DEFAULT_FEATURE_SET = "discharge_summary"
 
 
-def get_feature_columns(feature_set: str = "core_11") -> list[str]:
-    """Return feature columns for a named feature set."""
-    if feature_set in {"core", "core_11"}:
-        return list(CORE_11_FEATURE_COLUMNS)
-    if feature_set == "design_15":
-        return list(DESIGN_15_FEATURE_COLUMNS)
-    if feature_set == "chem_22":
-        return list(CHEM_22_FEATURE_COLUMNS)
-    if feature_set == "chem_derived":
-        return list(CHEM_DERIVED_FEATURE_COLUMNS)
-    raise ValueError(f"Unsupported feature_set: {feature_set!r}")
+def get_feature_columns(feature_set: str = DEFAULT_FEATURE_SET) -> list[str]:
+    """Return feature columns for a named NASA feature set."""
+    try:
+        return list(NASA_FEATURE_SETS[feature_set])
+    except KeyError as exc:
+        raise ValueError(f"Unsupported feature_set: {feature_set!r}") from exc
 
 
-def get_numeric_columns(feature_set: str = "core_11") -> list[str]:
-    """Return numeric feature columns for a named feature set."""
-    if feature_set in {"core", "core_11"}:
-        return list(CORE_11_NUMERIC_COLUMNS)
-    if feature_set == "design_15":
-        return list(DESIGN_15_NUMERIC_COLUMNS)
-    if feature_set == "chem_22":
-        return list(CHEM_22_NUMERIC_COLUMNS)
-    if feature_set == "chem_derived":
-        return list(CHEM_DERIVED_NUMERIC_COLUMNS)
-    raise ValueError(f"Unsupported feature_set: {feature_set!r}")
+def get_numeric_columns(feature_set: str = DEFAULT_FEATURE_SET) -> list[str]:
+    """Return numeric feature columns for a named NASA feature set."""
+    return [column for column in get_feature_columns(feature_set) if column not in NASA_CATEGORICAL_COLUMNS]
 
 
-def get_categorical_columns(feature_set: str = "core_11") -> list[str]:
-    """Return categorical feature columns for a named feature set."""
-    if feature_set in {"core", "core_11"}:
-        return list(CORE_11_CATEGORICAL_COLUMNS)
-    if feature_set == "design_15":
-        return list(DESIGN_15_CATEGORICAL_COLUMNS)
-    if feature_set == "chem_22":
-        return list(CHEM_22_CATEGORICAL_COLUMNS)
-    if feature_set == "chem_derived":
-        return list(CHEM_DERIVED_CATEGORICAL_COLUMNS)
-    raise ValueError(f"Unsupported feature_set: {feature_set!r}")
+def get_categorical_columns(feature_set: str = DEFAULT_FEATURE_SET) -> list[str]:
+    """Return categorical feature columns for a named NASA feature set."""
+    return [column for column in get_feature_columns(feature_set) if column in NASA_CATEGORICAL_COLUMNS]

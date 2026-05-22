@@ -37,7 +37,7 @@ def mean_absolute_percentage_error(
 def filtered_mean_absolute_percentage_error(
     y_true: np.ndarray | pd.Series,
     y_pred: np.ndarray | pd.Series,
-    min_abs_target: float = 5.0,
+    min_abs_target: float = 0.1,
 ) -> tuple[float, int]:
     """Calculate MAPE only where absolute target is safely away from zero."""
     true = np.asarray(y_true, dtype=float)
@@ -93,7 +93,7 @@ def regression_metrics(y_true: np.ndarray | pd.Series, y_pred: np.ndarray | pd.S
         wape=weighted_absolute_percentage_error(true, y_pred),
         smape=symmetric_mean_absolute_percentage_error(true, y_pred),
         filtered_mape=filtered_mape,
-        filtered_mape_threshold=5.0,
+        filtered_mape_threshold=0.1,
         filtered_mape_n_rows=filtered_n_rows,
         n_rows=int(true.shape[0]),
     )

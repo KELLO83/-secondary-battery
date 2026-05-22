@@ -1,4 +1,4 @@
-"""TabTransformer wrapper using the tabular-transformers package."""
+﻿"""TabTransformer wrapper using the tabular-transformers package."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class TabTransformerModel(BaseModel):
     name = "tab_transformer"
     family = "transformer"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "dim": 32,
@@ -120,3 +120,4 @@ class TabTransformerModel(BaseModel):
             for col in num_cols
         ])
         return x_cat, x_num
+

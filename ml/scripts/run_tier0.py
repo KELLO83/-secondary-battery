@@ -1,4 +1,4 @@
-"""Run Tier 0 sanity baselines on integrated battery CSVs."""
+"""Run Tier 0 sanity baselines on NASA cycle-level data."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ if str(ROOT) not in sys.path:
 
 from ml.src.experiments.runner import run_sklearn_baseline
 
+FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -21,9 +23,9 @@ def parse_args() -> argparse.Namespace:
         default=["dummy_mean", "dummy_median", "ridge"],
         help="Baseline model names.",
     )
-    parser.add_argument("--sample-size", type=int, default=100_000)
-    parser.add_argument("--valid-sample-size", type=int, default=50_000)
-    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "chem_derived"], default="core_11")
+    parser.add_argument("--sample-size", type=int, default=None)
+    parser.add_argument("--valid-sample-size", type=int, default=None)
+    parser.add_argument("--feature-set", choices=FEATURE_SET_CHOICES, default="discharge_summary")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output", type=Path, default=Path("results/experiments.csv"))
     return parser.parse_args()
@@ -42,9 +44,9 @@ def main() -> None:
         )
         print(
             f"{result['experiment_id']}: "
-            f"valid_mape={result['valid_mape']:.4f}, "
             f"valid_mae={result['valid_mae']:.4f}, "
-            f"valid_rmse={result['valid_rmse']:.4f}"
+            f"valid_rmse={result['valid_rmse']:.4f}, "
+            f"valid_wape={result['valid_wape']:.4f}"
         )
 
 

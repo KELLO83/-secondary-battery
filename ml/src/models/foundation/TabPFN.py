@@ -1,4 +1,4 @@
-"""TabPFN wrapper using the official pretrained TabPFNRegressor."""
+﻿"""TabPFN wrapper using the official pretrained TabPFNRegressor."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ class TabPFNModel(BaseModel):
     name = "tabpfn"
     family = "foundation"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,
@@ -79,3 +79,4 @@ def _has_tabpfn_access(params: dict[str, Any]) -> bool:
         Path.home() / ".tabpfn" / "token",
     ]
     return any(path.exists() and path.read_text(encoding="utf-8").strip() for path in token_paths)
+

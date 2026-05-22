@@ -1,4 +1,4 @@
-"""Latest TabPFN wrapper using official pretrained TabPFN weights."""
+﻿"""Latest TabPFN wrapper using official pretrained TabPFN weights."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ class TabPFNLatestModel(BaseModel):
     name = "tabpfn_latest"
     family = "foundation"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "version": "v3",
@@ -90,3 +90,4 @@ def _resolve_model_version(model_version_enum: Any, version: str) -> Any:
     if enum_name is None:
         raise ValueError(f"Unsupported TabPFN version: {version!r}")
     return getattr(model_version_enum, enum_name)
+

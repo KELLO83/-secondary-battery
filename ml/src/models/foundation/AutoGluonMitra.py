@@ -1,4 +1,4 @@
-"""AutoGluon Mitra ceiling benchmark wrapper."""
+﻿"""AutoGluon Mitra ceiling benchmark wrapper."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class AutoGluonMitraModel(BaseModel):
     name = "autogluon_mitra"
     family = "automl_ceiling"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "path": "results/autogluon/mitra",
             "time_limit": None,
@@ -82,3 +82,4 @@ class AutoGluonMitraModel(BaseModel):
         if self.predictor is None:
             raise RuntimeError("AutoGluon Mitra predictor is not fitted")
         return np.asarray(self.predictor.predict(X), dtype=float)
+

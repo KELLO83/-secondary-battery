@@ -1,4 +1,4 @@
-"""TabNet wrapper using the official pytorch-tabnet package."""
+﻿"""TabNet wrapper using the official pytorch-tabnet package."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class TabNetModel(BaseModel):
     name = "tabnet"
     family = "transformer"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device_name": "cuda",
             "seed": 42,
@@ -74,3 +74,4 @@ def _to_dense(array: Any) -> np.ndarray:
     if hasattr(array, "toarray"):
         array = array.toarray()
     return np.asarray(array, dtype=np.float32)
+

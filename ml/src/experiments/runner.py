@@ -1,4 +1,4 @@
-"""Minimal experiment runner for integrated battery data."""
+"""Minimal experiment runner for NASA cycle-level battery data."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def run_sklearn_baseline(
     output_path: Path,
     model_params: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    """Run a baseline model on integrated train/validation CSVs."""
+    """Run one model on NASA cycle-level train/validation battery splits."""
     LOGGER.info(
         "Loading data: model=%s feature_set=%s train_sample=%s valid_sample=%s seed=%s",
         model_name,
@@ -112,9 +112,9 @@ def run_sklearn_baseline(
         "cpu_workers": cpu_workers,
         "model_params": logged_model_params,
         "feature_set": feature_set,
-        "data_size": "integrated_train_validation",
+        "data_size": "nasa_cycle_level",
         "sample_size": sample_size or len(train_df),
-        "split_type": "aihub_validation",
+        "split_type": "battery_id_group_holdout",
         "split_seed": seed,
         "group_key": "",
         "train_time_sec": round(train_time, 6),
@@ -137,7 +137,7 @@ def run_sklearn_baseline(
         "test_filtered_mape_n_rows": "",
         "source_family_metrics": family_metrics,
         "notes": (
-            "Integrated model; source_family excluded from features. "
+            "NASA cycle-level model; battery_id group split prevents same-cell train/validation leakage. "
             "Raw MAPE is diagnostic only because zero/near-zero targets inflate percentage error."
         ),
     }

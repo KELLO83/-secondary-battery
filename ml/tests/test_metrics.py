@@ -13,5 +13,5 @@ def test_regression_metrics_basic() -> None:
     assert round(metrics.wape, 6) == 10.0
     assert round(metrics.smape, 6) == round((((10 / 105) + (20 / 190)) / 2) * 100, 6)
     assert round(metrics.filtered_mape, 6) == 10.0
-    assert metrics.filtered_mape_threshold == 5.0
+    assert metrics.filtered_mape_threshold == 0.1
     assert metrics.filtered_mape_n_rows == 2

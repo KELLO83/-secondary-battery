@@ -1,4 +1,4 @@
-"""Smoke-test model wrappers on synthetic core_11 data."""
+"""Smoke-test model wrappers on synthetic NASA cycle-level data."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
     parser.add_argument("--rows", type=int, default=32)
-    parser.add_argument("--feature-set", choices=["core_11"], default="core_11")
+    parser.add_argument("--feature-set", choices=["cycle_basic", "discharge_summary"], default="discharge_summary")
     return parser
 
 
@@ -65,27 +65,26 @@ def main() -> None:
 def make_dummy(n_rows: int) -> tuple[pd.DataFrame, pd.Series]:
     rng = np.random.default_rng(42)
     data: dict[str, object] = {}
-    for column in schema.CORE_11_NUMERIC_COLUMNS:
-        data[column] = rng.normal(3.5, 0.2, size=n_rows)
-    categories = {
-        "material_structure": ["Layered", "Spinel", "Olivine"],
-        "synthesis_method": ["Solid-state", "Co-precipitation", "Sol-gel"],
-        "Li_source": ["LiOH", "Li2CO3"],
-        "Ni_source": ["NiSO4", "NiO"],
-        "Co_source": ["Co3O4", "Co(NO3)2"],
-        "Mn_source": ["MnO2", "MnCO3"],
-        "electrolyte": ["EC:DEC/1M LiPF6", "EC:DMC/1M LiPF6"],
-        "separator": ["PP", "PE"],
-        "counter_electrode": ["Li-metal", "Graphite"],
-    }
-    for column in schema.CORE_11_CATEGORICAL_COLUMNS:
-        values = categories[column]
-        data[column] = [values[idx % len(values)] for idx in range(n_rows)]
+    for column in schema.get_numeric_columns("discharge_summary"):
+        if column == "cycle_index":
+            data[column] = np.arange(1, n_rows + 1)
+        elif column == "test_id":
+            data[column] = np.arange(n_rows)
+        elif column == "ambient_temperature":
+            data[column] = rng.choice([4.0, 24.0, 43.0], size=n_rows)
+        elif column == "sample_count":
+            data[column] = rng.integers(400, 1800, size=n_rows)
+        elif column == "duration_sec":
+            data[column] = rng.normal(3200.0, 300.0, size=n_rows)
+        else:
+            data[column] = rng.normal(1.0, 0.2, size=n_rows)
+    data["battery_id"] = [f"B{idx % 4:04d}" for idx in range(n_rows)]
     X = pd.DataFrame(data)
     y = pd.Series(
-        50.0
-        + rng.normal(0.0, 10.0, size=n_rows)
-        + 5.0 * (X["material_structure"] == "Layered").astype(float),
+        1.8
+        - 0.004 * X["cycle_index"].astype(float)
+        + 0.00005 * X["duration_sec"].astype(float)
+        + rng.normal(0.0, 0.03, size=n_rows),
         name=schema.TARGET_COLUMN,
     )
     return X, y

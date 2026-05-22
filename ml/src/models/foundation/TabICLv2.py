@@ -1,4 +1,4 @@
-"""TabICLv2 wrapper using the official pretrained TabICLRegressor."""
+﻿"""TabICLv2 wrapper using the official pretrained TabICLRegressor."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ class TabICLv2Model(BaseModel):
     name = "tabiclv2"
     family = "foundation"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "checkpoint_version": "tabicl-regressor-v2-20260212.ckpt",
@@ -53,3 +53,4 @@ class TabICLv2Model(BaseModel):
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         return np.asarray(self.model.predict(X), dtype=float)
+

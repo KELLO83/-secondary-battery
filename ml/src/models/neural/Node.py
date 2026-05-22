@@ -1,4 +1,4 @@
-"""NODE wrapper using the PyTorch Tabular implementation."""
+﻿"""NODE wrapper using the PyTorch Tabular implementation."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class NodeModel(BaseModel):
     name = "node"
     family = "neural"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,
@@ -127,3 +127,4 @@ def _accelerator(device: str) -> str:
     if lowered.startswith("cuda") or lowered.startswith("gpu"):
         return "gpu"
     return "cpu"
+

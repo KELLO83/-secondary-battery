@@ -1,4 +1,4 @@
-"""TabR wrapper using the pytabkit TabR sklearn interface."""
+﻿"""TabR wrapper using the pytabkit TabR sklearn interface."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class TabRModel(BaseModel):
     name = "tabr"
     family = "neural_retrieval"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "n_epochs": 100,
@@ -100,3 +100,4 @@ class TabRModel(BaseModel):
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         return np.asarray(self.pipeline.predict(X), dtype=float)
+

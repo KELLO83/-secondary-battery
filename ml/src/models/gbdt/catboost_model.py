@@ -1,4 +1,4 @@
-"""CatBoost regression wrapper for the regular Python 3.14 environment."""
+﻿"""CatBoost regression wrapper for the regular Python 3.14 environment."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class CatBoostModel(BaseModel):
     name = "catboost"
     family = "gbdt"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         super().__init__({"feature_set": feature_set, "params": params or {}})
         try:
             from catboost import CatBoostRegressor
@@ -69,3 +69,4 @@ class CatBoostModel(BaseModel):
         for column in self.categorical_columns:
             frame[column] = frame[column].astype("string").fillna("__MISSING__").astype(str)
         return frame
+

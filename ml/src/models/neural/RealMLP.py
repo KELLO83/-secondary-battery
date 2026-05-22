@@ -1,4 +1,4 @@
-"""RealMLP wrapper using the official pytabkit sklearn interface."""
+﻿"""RealMLP wrapper using the official pytabkit sklearn interface."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class RealMLPModel(BaseModel):
     name = "realmlp"
     family = "neural"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,
@@ -52,3 +52,4 @@ class RealMLPModel(BaseModel):
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         return np.asarray(self.pipeline.predict(X), dtype=float)
+

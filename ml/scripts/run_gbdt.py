@@ -1,4 +1,4 @@
-"""Run GBDT baselines on integrated battery CSVs."""
+"""Run GBDT baselines on NASA cycle-level data."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
 from ml.src.experiments.runner import run_sklearn_baseline
 
 LOGGER = logging.getLogger(__name__)
+FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -22,13 +23,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", choices=["lightgbm", "catboost"], default="lightgbm")
     parser.add_argument("--sample-size", type=int, default=100_000)
     parser.add_argument("--valid-sample-size", type=int, default=50_000)
-    parser.add_argument("--full-data", action="store_true", help="Train on the full integrated Training CSVs.")
+    parser.add_argument("--full-data", action="store_true", help="Train on all NASA train split rows.")
     parser.add_argument(
         "--valid-full-data",
         action="store_true",
-        help="Evaluate on the full integrated Validation CSVs instead of a validation sample.",
+        help="Evaluate on all NASA validation split rows instead of a validation sample.",
     )
-    parser.add_argument("--feature-set", choices=["core_11", "design_15", "chem_22", "chem_derived"], default="core_11")
+    parser.add_argument("--feature-set", choices=FEATURE_SET_CHOICES, default="discharge_summary")
     parser.add_argument(
         "--task-type",
         choices=["CPU", "GPU"],
@@ -73,9 +74,9 @@ def main() -> None:
     )
     print(
         f"{result['experiment_id']}: "
-        f"valid_mape={result['valid_mape']:.4f}, "
         f"valid_mae={result['valid_mae']:.4f}, "
-        f"valid_rmse={result['valid_rmse']:.4f}"
+        f"valid_rmse={result['valid_rmse']:.4f}, "
+        f"valid_wape={result['valid_wape']:.4f}"
     )
 
 

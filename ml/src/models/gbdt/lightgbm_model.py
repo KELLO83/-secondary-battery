@@ -1,4 +1,4 @@
-"""LightGBM regression wrapper using native categorical features."""
+﻿"""LightGBM regression wrapper using native categorical features."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class LightGBMModel(BaseModel):
     name = "lightgbm"
     family = "gbdt"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         super().__init__({"feature_set": feature_set, "params": params or {}})
         try:
             from lightgbm import LGBMRegressor
@@ -25,10 +25,10 @@ class LightGBMModel(BaseModel):
 
         default_params: dict[str, Any] = {
             "objective": "regression",
-            "n_estimators": 1000,
+            "n_estimators": 500,
             "learning_rate": 0.05,
-            "num_leaves": 127,
-            "min_child_samples": 100,
+            "num_leaves": 31,
+            "min_child_samples": 10,
             "subsample": 0.9,
             "colsample_bytree": 0.9,
             "n_jobs": 14,
@@ -86,3 +86,4 @@ def _tqdm_callback(total: int | None):
 
     _callback.order = 0
     return _callback
+

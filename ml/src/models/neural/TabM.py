@@ -1,4 +1,4 @@
-"""TabM wrapper using the pytabkit TabM sklearn interface."""
+﻿"""TabM wrapper using the pytabkit TabM sklearn interface."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class TabMModel(BaseModel):
     name = "tabm"
     family = "neural"
 
-    def __init__(self, feature_set: str = "core_11", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "n_epochs": 100,
@@ -74,3 +74,4 @@ class TabMModel(BaseModel):
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         return np.asarray(self.pipeline.predict(X), dtype=float)
+

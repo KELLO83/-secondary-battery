@@ -1,4 +1,4 @@
-"""Preprocessing helpers for sklearn-compatible baselines."""
+﻿"""Preprocessing helpers for sklearn-compatible baselines."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from ml.src import schema
-from ml.src.data.derived_features import add_chem_derived_features
 
 
 @dataclass(frozen=True)
@@ -33,11 +32,9 @@ def filter_target_range(
     return df.loc[mask].copy()
 
 
-def prepare_xy(df: pd.DataFrame, feature_set: str = "core_11") -> PreparedData:
+def prepare_xy(df: pd.DataFrame, feature_set: str = "discharge_summary") -> PreparedData:
     """Split dataframe into model features, target, and source-family metadata."""
     df = filter_target_range(df)
-    if feature_set == "chem_derived":
-        df = add_chem_derived_features(df)
     feature_columns = schema.get_feature_columns(feature_set)
     X = df[feature_columns].copy()
     for column in schema.get_numeric_columns(feature_set):
@@ -47,7 +44,7 @@ def prepare_xy(df: pd.DataFrame, feature_set: str = "core_11") -> PreparedData:
     return PreparedData(X=X, y=y, source_family=source_family)
 
 
-def build_sklearn_preprocessor(feature_set: str = "core_11") -> ColumnTransformer:
+def build_sklearn_preprocessor(feature_set: str = "discharge_summary") -> ColumnTransformer:
     """Build a preprocessing transformer for mixed tabular features."""
     numeric_columns = schema.get_numeric_columns(feature_set)
     categorical_columns = schema.get_categorical_columns(feature_set)
@@ -77,3 +74,4 @@ def build_sklearn_preprocessor(feature_set: str = "core_11") -> ColumnTransforme
 def _stringify_categories(frame: pd.DataFrame) -> pd.DataFrame:
     """Convert categorical columns to strings and normalize missing values."""
     return frame.astype("string").fillna("__MISSING__")
+
