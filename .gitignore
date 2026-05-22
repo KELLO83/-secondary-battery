@@ -46,6 +46,8 @@ opencode_backup.json
 *.local
 config.json
 secrets.json
+.secrets/
+tabpfn_token*
 
 # Data / Databases
 /data/

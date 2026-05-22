@@ -26,6 +26,8 @@ class RealMLPModel(BaseModel):
             "batch_size": 4096,
             **(params or {}),
         }
+        if "max_epochs" in params:
+            params["n_epochs"] = params.pop("max_epochs")
         super().__init__({"feature_set": feature_set, "params": params, "training_mode": "from_scratch"})
         try:
             from pytabkit import RealMLP_TD_Regressor

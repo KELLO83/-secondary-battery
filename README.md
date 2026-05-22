@@ -2,6 +2,8 @@
 
 NASA battery cycle-level capacity prediction experiments.
 
+![NASA battery model performance](docs/nasa_model_performance.svg)
+
 Active dataset:
 
 ```text

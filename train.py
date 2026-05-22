@@ -24,9 +24,8 @@ LOGGER = logging.getLogger(__name__)
 GBDT_MODELS = ["lightgbm", "catboost"]
 NEURAL_MODELS = ["realmlp", "tabm", "tabr", "dcnv2", "node"]
 TRANSFORMER_MODELS = ["ft_transformer", "tab_transformer", "tabnet"]
-FOUNDATION_MODELS = ["tabpfn", "tabpfn_latest", "tabiclv2"]
-CEILING_MODELS = ["autogluon_mitra"]
-MODEL_CHOICES = GBDT_MODELS + NEURAL_MODELS + TRANSFORMER_MODELS + FOUNDATION_MODELS + CEILING_MODELS
+FOUNDATION_MODELS = ["tabpfn", "tabiclv2"]
+MODEL_CHOICES = GBDT_MODELS + NEURAL_MODELS + TRANSFORMER_MODELS + FOUNDATION_MODELS
 FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
 
 
@@ -89,7 +88,6 @@ def main() -> None:
         print("neural:", ", ".join(NEURAL_MODELS))
         print("transformer:", ", ".join(TRANSFORMER_MODELS))
         print("foundation:", ", ".join(FOUNDATION_MODELS))
-        print("ceiling:", ", ".join(CEILING_MODELS))
         print("rule: one train.py run = one concrete model only")
         return
 
@@ -138,8 +136,6 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("One train.py run must train exactly one model.")
     if args.model != "catboost" and args.task_type is not None:
         raise ValueError("--task-type is only supported for catboost.")
-    if args.model == "autogluon_mitra" and args.full_data:
-        LOGGER.warning("AutoGluon/Mitra full-data runs can be very expensive; prefer sampled ceiling benchmarks first.")
 
 
 def _build_model_params(args: argparse.Namespace) -> dict[str, Any]:

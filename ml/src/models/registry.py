@@ -5,10 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from ml.src.models.base import BaseModel
-from ml.src.models.foundation.AutoGluonMitra import AutoGluonMitraModel
 from ml.src.models.foundation.TabICLv2 import TabICLv2Model
 from ml.src.models.foundation.TabPFN import TabPFNModel
-from ml.src.models.foundation.TabPFNLatest import TabPFNLatestModel
 from ml.src.models.gbdt.catboost_model import CatBoostModel
 from ml.src.models.gbdt.lightgbm_model import LightGBMModel
 from ml.src.models.neural.DCNV2 import DCNV2Model
@@ -48,11 +46,7 @@ def create_model(model_name: str, feature_set: str = "discharge_summary", params
         return TabNetModel(feature_set=feature_set, params=params)
     if model_name == "tabpfn":
         return TabPFNModel(feature_set=feature_set, params=params)
-    if model_name == "tabpfn_latest":
-        return TabPFNLatestModel(feature_set=feature_set, params=params)
     if model_name == "tabiclv2":
         return TabICLv2Model(feature_set=feature_set, params=params)
-    if model_name == "autogluon_mitra":
-        return AutoGluonMitraModel(feature_set=feature_set, params=params)
     raise ValueError(f"Unsupported model: {model_name}")
 

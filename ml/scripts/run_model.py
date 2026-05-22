@@ -28,9 +28,7 @@ MODEL_CHOICES = [
     "tab_transformer",
     "tabnet",
     "tabpfn",
-    "tabpfn_latest",
     "tabiclv2",
-    "autogluon_mitra",
 ]
 FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
 

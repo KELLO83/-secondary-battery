@@ -122,13 +122,13 @@ CatBoost 예외:
 
 Neural/Transformer/Foundation 예외:
 
-- RealMLP, TabM, TabR, DCN-V2, NODE, FT-Transformer, TabTransformer, TabNet, TabPFN, TabPFN latest, TabICLv2, AutoGluon/Mitra는 기본적으로 GPU 학습 또는 GPU 추론을 사용한다.
+- RealMLP, TabM, TabR, DCN-V2, NODE, FT-Transformer, TabTransformer, TabNet, TabPFN v3, TabICLv2는 기본적으로 GPU 학습 또는 GPU 추론을 사용한다.
 - 이 모델들은 PyTorch/CUDA/공식 pretrained checkpoint 호환성이 중요하므로 `.venv314`에서 설치하고 실행한다.
 - `.venv314t`에 PyTorch, CUDA extension, tabular foundation model package를 소스 빌드해서 맞추지 않는다.
 - `ml/requirements-optional-dl.txt`는 `.venv314` 기준 optional dependency 목록으로 취급한다.
 - GPU를 사용할 수 없는 경우에만 명시적으로 CPU fallback을 검토하고, 실행 환경과 사유를 실험 로그에 기록한다.
-- TabPFN pretrained weight는 Prior Labs 라이선스 승인과 token 또는 local checkpoint가 필요할 수 있다. 정식 실험 스크립트는 브라우저 로그인 프롬프트에 의존하지 않고 `TABPFN_TOKEN`, `~/.cache/tabpfn/auth_token`, `~/.tabpfn/token`, 또는 명시적 local `model_path`를 사용한다.
-- 대형 실험 실행 전에는 `docs/RUN_RISK_CHECKLIST.md`를 확인하고, GPU/OOM, TabPFN 접근권한, AutoGluon/Mitra 설치 조건을 충족하지 못하면 실패 사유를 기록한다.
+- TabPFN v3 pretrained weight는 Prior Labs 라이선스 승인과 token 또는 local checkpoint가 필요할 수 있다. 정식 실험 스크립트는 브라우저 로그인 프롬프트에 의존하지 않고 `TABPFN_TOKEN`, `.secrets/tabpfn_token`, `~/.cache/tabpfn/auth_token`, `~/.tabpfn/token`, 또는 명시적 local `model_path`를 사용한다.
+- 대형 실험 실행 전에는 `docs/RUN_RISK_CHECKLIST.md`를 확인하고, GPU/OOM, TabPFN 접근권한 조건을 충족하지 못하면 실패 사유를 기록한다.
 - 모델 아키텍처 본체는 가능한 한 공식 GitHub/Hugging Face/PyPI/PyTorch 구현체를 import해서 사용한다. 프로젝트 내부 코드는 데이터 전처리, 학습 orchestration, logging, evaluation wrapper를 담당한다.
 - 외부 구현체가 없거나 회귀/Python/CUDA 환경을 지원하지 않아 직접 구현이 필요한 경우, 코드 작성 전에 해당 사유를 문서에 남긴다.
 

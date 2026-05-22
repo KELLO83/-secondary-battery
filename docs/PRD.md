@@ -80,8 +80,7 @@ Phase 3:
 Phase 4:
 
 1. TabICLv2
-2. TabPFN 계열
-3. AutoGluon/Mitra ceiling benchmark
+2. TabPFN v3
 
 단, cycle-level row 수가 약 2.8K로 작기 때문에 대형 transformer는 과적합 가능성이 높다. NASA에서는 LightGBM/CatBoost/TabM/NODE/TabICLv2를 우선한다.
 

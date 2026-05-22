@@ -49,22 +49,13 @@
 ## Tier 4: Foundation / Training-Free Models
 
 1. TabICLv2
-2. TabPFN 계열
+2. TabPFN v3
 
 정책:
 
-- 가능한 경우 pretrained checkpoint를 사용한다.
-- TabPFN 계열은 token/checkpoint/license 조건을 실험 로그에 남긴다.
+- pretrained checkpoint `tabpfn-v3-regressor-v3_default.ckpt`를 사용한다.
+- TabPFN v3는 token/checkpoint/license 조건을 실험 로그에 남긴다.
 - fine-tuning이 아니라 in-context inference 방식인지 명확히 기록한다.
-
-## Tier 5: Ceiling Benchmark
-
-- AutoGluon/Mitra
-
-정책:
-
-- 설치/라이선스/실행 비용을 확인한 뒤 별도 ceiling benchmark로만 실행한다.
-- 기본 실험 자동화에는 포함하지 않는다.
 
 ## Execution Rule
 
