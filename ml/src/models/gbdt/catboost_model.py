@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ml.src import schema
+from ml.src.data import feature_registry
 from ml.src.models.base import BaseModel
 
 
@@ -15,7 +15,7 @@ class CatBoostModel(BaseModel):
     name = "catboost"
     family = "gbdt"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         super().__init__({"feature_set": feature_set, "params": params or {}})
         try:
             from catboost import CatBoostRegressor
@@ -40,8 +40,8 @@ class CatBoostModel(BaseModel):
         default_params.update(params or {})
         self.config["params"] = default_params
         self.feature_set = feature_set
-        self.categorical_columns = schema.get_categorical_columns(feature_set)
-        self.numeric_columns = schema.get_numeric_columns(feature_set)
+        self.categorical_columns = feature_registry.get_categorical_columns(feature_set)
+        self.numeric_columns = feature_registry.get_numeric_columns(feature_set)
         self.model = CatBoostRegressor(**default_params)
 
     def fit(

@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ml.src import schema
+from ml.src.data import feature_registry
 from ml.src.models.base import BaseModel
 
 
@@ -15,7 +15,7 @@ class DCNV2Model(BaseModel):
     name = "dcnv2"
     family = "neural"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,
@@ -61,8 +61,8 @@ class DCNV2Model(BaseModel):
         y_valid: pd.Series | None = None,
     ) -> None:
         train_input = self._fit_transform(X_train)
-        cat_cols = schema.get_categorical_columns(self.feature_set)
-        num_cols = schema.get_numeric_columns(self.feature_set)
+        cat_cols = feature_registry.get_categorical_columns(self.feature_set)
+        num_cols = feature_registry.get_numeric_columns(self.feature_set)
         sparse_features = [
             self.SparseFeat(col, vocabulary_size=len(self.category_maps[col]) + 1, embedding_dim=int(self.params["embedding_dim"]))
             for col in cat_cols
@@ -102,10 +102,10 @@ class DCNV2Model(BaseModel):
         ).reshape(-1)
 
     def _fit_transform(self, X: pd.DataFrame) -> dict[str, np.ndarray]:
-        for col in schema.get_categorical_columns(self.feature_set):
+        for col in feature_registry.get_categorical_columns(self.feature_set):
             values = X[col].astype("string").fillna("__MISSING__").astype(str)
             self.category_maps[col] = {value: idx + 1 for idx, value in enumerate(sorted(values.unique()))}
-        for col in schema.get_numeric_columns(self.feature_set):
+        for col in feature_registry.get_numeric_columns(self.feature_set):
             values = pd.to_numeric(X[col], errors="coerce")
             median = float(values.median()) if values.notna().any() else 0.0
             filled = values.fillna(median)
@@ -118,7 +118,7 @@ class DCNV2Model(BaseModel):
 
     def _transform(self, X: pd.DataFrame) -> dict[str, np.ndarray]:
         result: dict[str, np.ndarray] = {}
-        for col in schema.get_categorical_columns(self.feature_set):
+        for col in feature_registry.get_categorical_columns(self.feature_set):
             result[col] = (
                 X[col]
                 .astype("string")
@@ -128,7 +128,7 @@ class DCNV2Model(BaseModel):
                 .fillna(0)
                 .to_numpy(dtype=np.int64)
             )
-        for col in schema.get_numeric_columns(self.feature_set):
+        for col in feature_registry.get_numeric_columns(self.feature_set):
             values = pd.to_numeric(X[col], errors="coerce").fillna(self.numeric_medians[col])
             result[col] = ((values - self.numeric_means[col]) / self.numeric_stds[col]).to_numpy(dtype=np.float32)
         return result

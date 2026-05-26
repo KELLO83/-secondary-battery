@@ -1,149 +1,67 @@
-# NASA Data Contract
+# Generic Tabular Regression Data Contract
 
-## Active Dataset
+## Input
 
-현재 active dataset은 Kaggle `patrickfleith/nasa-battery-dataset`이다.
+The training input is a CSV file.
 
-```text
-raw root: data/nasa_battery_raw/cleaned_dataset
-processed table: data/processed/nasa_cycle_level.csv
-target: capacity
-group key: battery_id
-```
+Required:
 
-이전 데이터셋은 사용하지 않는다.
+- `--csv`: path to CSV
+- `--target`: numeric regression target column
 
-## Required Raw Files
+Optional:
 
-```text
-data/nasa_battery_raw/cleaned_dataset/metadata.csv
-data/nasa_battery_raw/cleaned_dataset/data/*.csv
-```
+- `--features`: exact comma-separated feature list
+- `--exclude`: columns to remove from automatic feature selection
+- `--categorical`: columns to treat as categorical
+- `--config`: JSON config containing the same settings
 
-`metadata.csv`에는 최소 다음 컬럼이 필요하다.
+## Feature Selection
 
-```text
-type
-ambient_temperature
-battery_id
-test_id
-uid
-filename
-Capacity
-```
+If `features` is provided, only those columns are used.
 
-discharge signal CSV에는 최소 다음 컬럼이 필요하다.
+If `features` is not provided:
 
 ```text
-Voltage_measured
-Current_measured
-Temperature_measured
-Current_load
-Voltage_load
-Time
+features = all columns - target - exclude - unnamed index columns
 ```
 
-## Processed Table Contract
+Target-derived columns must be excluded manually. Examples:
 
-`data/processed/nasa_cycle_level.csv`는 discharge cycle 1개를 row 1개로 표현한다.
+- target itself
+- normalized target
+- residual target
+- post-measurement label
+- future value
 
-필수 metadata/target:
+## Config Format
+
+```json
+{
+  "csv": "path/to/data.csv",
+  "target": "target_column",
+  "model": "lightgbm",
+  "features": ["f1", "f2", "f3"],
+  "exclude": ["id", "leakage_column"],
+  "categorical": ["category_column"],
+  "test_size": 0.2,
+  "seed": 42,
+  "model_params": {
+    "n_estimators": 100
+  }
+}
+```
+
+## Output
+
+Generic runs write:
 
 ```text
-battery_id
-test_id
-uid
-filename
-ambient_temperature
-cycle_index
-capacity
-soh
+results/tabular_regression_experiments.csv
 ```
 
-필수 signal summary:
+Optional predictions:
 
-```text
-sample_count
-duration_sec
-voltage_measured_first
-voltage_measured_last
-voltage_measured_min
-voltage_measured_max
-voltage_measured_mean
-voltage_measured_std
-current_measured_first
-current_measured_last
-current_measured_min
-current_measured_max
-current_measured_mean
-current_measured_std
-temperature_measured_first
-temperature_measured_last
-temperature_measured_min
-temperature_measured_max
-temperature_measured_mean
-temperature_measured_std
-current_load_first
-current_load_last
-current_load_min
-current_load_max
-current_load_mean
-current_load_std
-voltage_load_first
-voltage_load_last
-voltage_load_min
-voltage_load_max
-voltage_load_mean
-voltage_load_std
-voltage_drop
-mean_power_measured
-integrated_abs_current
+```powershell
+--save-predictions
 ```
-
-## Feature Sets
-
-| Feature set | 용도 | 정상 leaderboard 사용 |
-|---|---|---|
-| `cycle_basic` | cycle index/온도만 쓰는 최소 기준선 | 가능 |
-| `discharge_summary` | 1차 기본 모델 | 가능 |
-| `discharge_health` | `soh` 포함 sanity-check/상한 확인 | 불가 |
-
-`discharge_health`는 target-derived `soh`를 포함하므로 운영 성능 비교에는 사용하지 않는다.
-
-## Split Contract
-
-모든 정상 실험은 `battery_id` group holdout을 사용한다.
-
-금지:
-
-```text
-same battery_id in train and validation
-random row split over cycles
-```
-
-허용:
-
-```text
-GroupShuffleSplit(groups=battery_id)
-leave-one-battery-out style validation
-```
-
-## Metric Contract
-
-주요 지표:
-
-```text
-MAE
-RMSE
-WAPE
-SMAPE
-```
-
-보조 지표:
-
-```text
-raw MAPE
-filtered MAPE
-```
-
-raw MAPE는 capacity가 작거나 0에 가까운 row에서 불안정할 수 있으므로 최종 선정 기준으로 사용하지 않는다.

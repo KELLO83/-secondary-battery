@@ -23,6 +23,8 @@ share/python-wheels/
 MANIFEST
 *.png
 *.jpg
+*.json
+*.txt
 
 # Virtual Environment
 .env

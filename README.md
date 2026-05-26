@@ -1,21 +1,15 @@
-# Secondary Battery ML
+# Prediction ML
 
-NASA battery cycle-level capacity prediction experiments.
+Generic CSV-based tabular regression model comparison.
 
-![NASA battery model performance](docs/nasa_model_performance.svg)
-
-Active dataset:
-
-```text
-Kaggle: patrickfleith/nasa-battery-dataset
-raw: data/nasa_battery_raw/cleaned_dataset
-processed: data/processed/nasa_cycle_level.csv
-```
-
-Run one LightGBM baseline:
+Use config-driven runs:
 
 ```powershell
-.\.venv314\Scripts\python.exe train.py --model lightgbm --feature-set discharge_summary --full-data --valid-full-data
+.\.venv314\Scripts\python.exe train.py --config configs\nasa_capacity_lightgbm.json
 ```
 
-Local virtual environments, raw data, checkpoints, and experiment outputs are excluded from Git.
+Or direct CLI:
+
+```powershell
+.\.venv314\Scripts\python.exe train.py --csv data\processed\nasa_cycle_level.csv --target capacity --features sample_count,duration_sec,cycle_index --model lightgbm
+```

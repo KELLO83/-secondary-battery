@@ -1,4 +1,4 @@
-"""Smoke-test model wrappers on synthetic NASA cycle-level data."""
+"""Smoke-test model wrappers on synthetic generic tabular data."""
 
 from __future__ import annotations
 
@@ -14,12 +14,13 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from ml.src import schema
+from ml.src.data import feature_registry
 from ml.src.models.registry import create_model
 
 
 DEFAULT_MODELS = [
     "dummy_mean",
+    "dummy_median",
     "ridge",
     "lightgbm",
     "catboost",
@@ -31,28 +32,34 @@ DEFAULT_MODELS = [
     "ft_transformer",
     "tab_transformer",
     "tabnet",
+    "tabpfn",
     "tabiclv2",
 ]
+
+SMOKE_FEATURE_SET = "smoke_numeric"
+SMOKE_FEATURES = ["f0", "f1", "f2", "f3", "category"]
+SMOKE_CATEGORICAL = ["category"]
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
     parser.add_argument("--rows", type=int, default=32)
-    parser.add_argument("--feature-set", choices=["cycle_basic", "discharge_summary"], default="discharge_summary")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    feature_registry.register_feature_set(SMOKE_FEATURE_SET, SMOKE_FEATURES, SMOKE_CATEGORICAL)
     X, y = make_dummy(args.rows)
+    valid_start = max(4, int(args.rows * 0.75))
     for model_name in args.models:
         params = smoke_params(model_name)
         try:
-            model = create_model(model_name, feature_set=args.feature_set, params=params)
-            model.fit(X.iloc[:24], y.iloc[:24], X.iloc[24:], y.iloc[24:])
-            pred = np.asarray(model.predict(X.iloc[24:28]), dtype=float)
-            ok = pred.shape == (4,) and np.isfinite(pred).all()
+            model = create_model(model_name, feature_set=SMOKE_FEATURE_SET, params=params)
+            model.fit(X.iloc[:valid_start], y.iloc[:valid_start], X.iloc[valid_start:], y.iloc[valid_start:])
+            pred = np.asarray(model.predict(X.iloc[valid_start : valid_start + 4]), dtype=float)
+            ok = pred.shape == (min(4, len(X) - valid_start),) and np.isfinite(pred).all()
             status = "PASS" if ok else "FAIL"
             detail = f"pred_shape={pred.shape}"
         except Exception as exc:  # noqa: BLE001 - smoke script should report every wrapper failure.
@@ -64,35 +71,23 @@ def main() -> None:
 
 def make_dummy(n_rows: int) -> tuple[pd.DataFrame, pd.Series]:
     rng = np.random.default_rng(42)
-    data: dict[str, object] = {}
-    for column in schema.get_numeric_columns("discharge_summary"):
-        if column == "cycle_index":
-            data[column] = np.arange(1, n_rows + 1)
-        elif column == "test_id":
-            data[column] = np.arange(n_rows)
-        elif column == "ambient_temperature":
-            data[column] = rng.choice([4.0, 24.0, 43.0], size=n_rows)
-        elif column == "sample_count":
-            data[column] = rng.integers(400, 1800, size=n_rows)
-        elif column == "duration_sec":
-            data[column] = rng.normal(3200.0, 300.0, size=n_rows)
-        else:
-            data[column] = rng.normal(1.0, 0.2, size=n_rows)
-    data["battery_id"] = [f"B{idx % 4:04d}" for idx in range(n_rows)]
-    X = pd.DataFrame(data)
-    y = pd.Series(
-        1.8
-        - 0.004 * X["cycle_index"].astype(float)
-        + 0.00005 * X["duration_sec"].astype(float)
-        + rng.normal(0.0, 0.03, size=n_rows),
-        name=schema.TARGET_COLUMN,
+    X = pd.DataFrame(
+        {
+            "f0": rng.normal(0.0, 1.0, size=n_rows),
+            "f1": rng.normal(1.0, 0.5, size=n_rows),
+            "f2": rng.integers(0, 10, size=n_rows),
+            "f3": np.arange(n_rows),
+            "category": [f"C{idx % 3}" for idx in range(n_rows)],
+        }
     )
+    y = pd.Series(0.5 * X["f0"] - 0.2 * X["f1"] + 0.01 * X["f3"] + rng.normal(0.0, 0.01, size=n_rows), name="target")
     return X, y
 
 
 def smoke_params(model_name: str) -> dict[str, object]:
-    params: dict[str, object] = {
+    return {
         "dummy_mean": {},
+        "dummy_median": {},
         "ridge": {},
         "lightgbm": {"n_estimators": 3, "num_leaves": 7, "min_child_samples": 2, "n_jobs": 2},
         "catboost": {"iterations": 3, "task_type": "CPU", "thread_count": 2, "verbose": False},
@@ -128,6 +123,7 @@ def smoke_params(model_name: str) -> dict[str, object]:
             "progress_bar": "none",
             "early_stopping_patience": 1,
             "num_workers": 0,
+            "pin_memory": False,
         },
         "ft_transformer": {"device": "cpu", "epochs": 1, "batch_size": 16, "dim": 8, "depth": 1, "heads": 2},
         "tab_transformer": {"device": "cpu", "epochs": 1, "batch_size": 16, "dim": 8, "depth": 1, "heads": 2},
@@ -140,9 +136,9 @@ def smoke_params(model_name: str) -> dict[str, object]:
             "n_a": 4,
             "n_steps": 2,
         },
+        "tabpfn": {"device": "cpu"},
         "tabiclv2": {"device": "cpu", "verbose": False, "allow_auto_download": False},
     }.get(model_name, {})
-    return params
 
 
 if __name__ == "__main__":

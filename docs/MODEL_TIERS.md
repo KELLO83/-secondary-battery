@@ -1,66 +1,44 @@
 # Model Tiers
 
-## Tier 0: Sanity Baselines
+## Tier 0: Baseline
 
-- Dummy mean
-- Ridge
+Dummy regressors and Ridge are sanity baselines.
 
-목적:
+LightGBM is the first serious baseline for generic tabular regression.
 
-- split과 metric이 정상인지 확인한다.
-- `cycle_basic` 대비 `discharge_summary`의 정보 이득을 확인한다.
+Reason:
 
-## Tier 1: Core GBDT Baselines
+- strong default performance
+- fast on small and medium tables
+- robust with mixed feature scales
 
-1. LightGBM
-2. CatBoost
+## Tier 1: Alternative GBDT
 
-정책:
+CatBoost is useful when categorical columns are important or when LightGBM is unstable.
 
-- LightGBM을 첫 기준 모델로 실행한다.
-- CatBoost는 정식 실험에서 GPU를 기본값으로 사용한다.
-- 두 모델 모두 `discharge_summary`를 기본 feature set으로 사용한다.
+## Tier 2: Foundation / In-Context
 
-## Tier 2: Neural Tabular Models
+TabPFN v3 is used as a pretrained tabular foundation model.
 
-1. RealMLP
-2. TabM
-3. NODE
-4. TabR
-5. DCN-V2
+Rules:
 
-정책:
+- do not train from scratch
+- use CPU for quick checks if GPU is unnecessary
+- ensure token/checkpoint access is available before unattended runs
 
-- `.venv314`와 CUDA torch 환경을 사용한다.
-- cycle-level row 수가 약 2.8K로 작으므로 과적합을 강하게 감시한다.
-- GPU batch size는 OOM 없이 가능한 범위에서 크게 잡되, 실험 1회당 모델 1개 원칙을 유지한다.
+## Tier 3: Neural / Transformer Models
 
-## Tier 3: Transformer Models
+Use only after the CSV contract and baseline metrics are stable.
 
-1. FT-Transformer
-2. TabTransformer
-3. TabNet
+These models are more sensitive to sample size, scaling, batch size, and overfitting.
 
-주의:
-
-- NASA cycle-level table은 row 수가 크지 않다.
-- Transformer는 성능 확인용으로만 우선 실행하고, GBDT/TabM/NODE보다 우선순위를 낮춘다.
-
-## Tier 4: Foundation / Training-Free Models
-
-1. TabICLv2
-2. TabPFN v3
-
-정책:
-
-- pretrained checkpoint `tabpfn-v3-regressor-v3_default.ckpt`를 사용한다.
-- TabPFN v3는 token/checkpoint/license 조건을 실험 로그에 남긴다.
-- fine-tuning이 아니라 in-context inference 방식인지 명확히 기록한다.
-
-## Execution Rule
+Available names:
 
 ```text
-one train.py invocation = one model experiment
+realmlp, tabm, tabr, dcnv2, node,
+ft_transformer, tab_transformer, tabnet
 ```
 
-여러 모델 sweep을 자동으로 이어서 실행하지 않는다.
+## Additional Foundation Model
+
+TabICLv2 is exposed through the model registry. Runtime depends on package/checkpoint availability.

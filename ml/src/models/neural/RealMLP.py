@@ -16,7 +16,7 @@ class RealMLPModel(BaseModel):
     name = "realmlp"
     family = "neural"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,

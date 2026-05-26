@@ -16,7 +16,7 @@ class TabRModel(BaseModel):
     name = "tabr"
     family = "neural_retrieval"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "n_epochs": 100,

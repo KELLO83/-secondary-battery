@@ -1,13 +1,10 @@
-"""Train one NASA battery cycle-level tabular model experiment.
-
-One invocation runs exactly one model experiment and writes metrics to the
-configured results CSV/log file.
-"""
+"""Train one generic CSV-backed tabular regression experiment."""
 
 from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import importlib.util
 import logging
 import sys
 from pathlib import Path
@@ -16,17 +13,22 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-from ml.src.experiments.runner import run_single_experiment
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 LOGGER = logging.getLogger(__name__)
 
+SKLEARN_MODELS = ["dummy_mean", "dummy_median", "ridge"]
 GBDT_MODELS = ["lightgbm", "catboost"]
 NEURAL_MODELS = ["realmlp", "tabm", "tabr", "dcnv2", "node"]
 TRANSFORMER_MODELS = ["ft_transformer", "tab_transformer", "tabnet"]
 FOUNDATION_MODELS = ["tabpfn", "tabiclv2"]
-MODEL_CHOICES = GBDT_MODELS + NEURAL_MODELS + TRANSFORMER_MODELS + FOUNDATION_MODELS
-FEATURE_SET_CHOICES = ["cycle_basic", "discharge_summary", "discharge_health"]
+MODEL_CHOICES = SKLEARN_MODELS + GBDT_MODELS + NEURAL_MODELS + TRANSFORMER_MODELS + FOUNDATION_MODELS
+DEFAULT_CSV = ROOT / "superconductivity" / "openml_44964_superconductivity.csv"
+DEFAULT_TARGET = "critical_temp"
+DEFAULT_MODEL = "lightgbm"
 
 
 def parse_key_value(raw: str) -> tuple[str, Any]:
@@ -53,16 +55,20 @@ def parse_key_value(raw: str) -> tuple[str, Any]:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", choices=MODEL_CHOICES, default="lightgbm")
-    parser.add_argument("--feature-set", choices=FEATURE_SET_CHOICES, default="discharge_summary")
-    parser.add_argument("--sample-size", type=int, default=100_000)
-    parser.add_argument("--valid-sample-size", type=int, default=50_000)
-    parser.add_argument("--full-data", action="store_true", help="Train on all NASA train split rows.")
-    parser.add_argument("--valid-full-data", action="store_true", help="Evaluate on all NASA validation split rows.")
+    parser.add_argument("--config", type=Path, default=None, help="Tabular regression JSON config.")
+    parser.add_argument("--csv", type=Path, default=DEFAULT_CSV, help=f"Input CSV path. Default: {DEFAULT_CSV}")
+    parser.add_argument("--target", default=DEFAULT_TARGET, help=f"Regression target column. Default: {DEFAULT_TARGET}")
+    parser.add_argument("--features", default="", help="Comma-separated feature columns.")
+    parser.add_argument("--exclude", default="", help="Comma-separated columns to exclude from automatic features.")
+    parser.add_argument("--categorical", default="", help="Comma-separated categorical feature columns.")
+    parser.add_argument("--model", choices=MODEL_CHOICES, default=DEFAULT_MODEL)
+    parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output", type=Path, default=Path("results/experiments.csv"))
+    parser.add_argument("--output", type=Path, default=Path("results/tabular_regression_experiments.csv"))
     parser.add_argument("--log-file", type=Path, default=None)
-    parser.add_argument("--device", default=None, help="Optional device for neural/foundation models, e.g. cuda or cpu.")
+    parser.add_argument("--save-predictions", action="store_true")
+    parser.add_argument("--prediction-dir", type=Path, default=Path("results/predictions"))
+    parser.add_argument("--device", default=None, help="Optional model device, e.g. cuda or cpu.")
     parser.add_argument("--max-epochs", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--task-type", choices=["CPU", "GPU"], default=None, help="CatBoost task type.")
@@ -81,9 +87,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
+    args = build_parser().parse_args()
     if args.list_models:
+        print("sklearn:", ", ".join(SKLEARN_MODELS))
         print("gbdt:", ", ".join(GBDT_MODELS))
         print("neural:", ", ".join(NEURAL_MODELS))
         print("transformer:", ", ".join(TRANSFORMER_MODELS))
@@ -93,41 +99,19 @@ def main() -> None:
 
     _setup_logging(args)
     _validate_args(args)
-    sample_size = None if args.full_data else args.sample_size
-    valid_sample_size = None if args.valid_full_data else args.valid_sample_size
-    model_params = _build_model_params(args)
-
+    result = _run_generic_tabular_mode(args)
     LOGGER.info(
-        "Starting experiment: model=%s feature_set=%s sample_size=%s valid_sample_size=%s params=%s",
-        args.model,
-        args.feature_set,
-        sample_size or "full",
-        valid_sample_size or "full",
-        model_params,
-    )
-    result = run_single_experiment(
-        model_name=args.model,
-        sample_size=sample_size,
-        valid_sample_size=valid_sample_size,
-        feature_set=args.feature_set,
-        seed=args.seed,
-        output_path=args.output,
-        model_params=model_params,
-    )
-    LOGGER.info(
-        "Finished experiment=%s valid_rmse=%.6f valid_mae=%.6f valid_wape=%.6f valid_smape=%.6f",
+        "Finished experiment=%s valid_rmse=%.6f valid_mae=%.6f valid_wape=%.6f",
         result["experiment_id"],
-        result["valid_rmse"],
-        result["valid_mae"],
-        result["valid_wape"],
-        result["valid_smape"],
+        result["rmse"],
+        result["mae"],
+        result["wape"],
     )
     print(
         f"{result['experiment_id']}: "
-        f"valid_rmse={result['valid_rmse']:.4f}, "
-        f"valid_mae={result['valid_mae']:.4f}, "
-        f"valid_wape={result['valid_wape']:.4f}, "
-        f"valid_smape={result['valid_smape']:.4f}"
+        f"valid_rmse={result['rmse']:.4f}, "
+        f"valid_mae={result['mae']:.4f}, "
+        f"valid_wape={result['wape']:.4f}"
     )
 
 
@@ -136,6 +120,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("One train.py run must train exactly one model.")
     if args.model != "catboost" and args.task_type is not None:
         raise ValueError("--task-type is only supported for catboost.")
+    if args.config is None and (args.csv is None or args.target is None):
+        raise ValueError("Provide --config, or provide --csv and --target.")
 
 
 def _build_model_params(args: argparse.Namespace) -> dict[str, Any]:
@@ -158,12 +144,96 @@ def _build_model_params(args: argparse.Namespace) -> dict[str, Any]:
     return params
 
 
+def _run_generic_tabular_mode(args: argparse.Namespace) -> dict[str, Any]:
+    module = _load_tabular_regression_module()
+    args = module.resolve_config(args)
+    params = _build_model_params(args)
+    df = module.read_csv(args.csv)
+    config = module.infer_columns(
+        df=df,
+        target=args.target,
+        features=module.parse_csv_list(args.features),
+        exclude=module.parse_csv_list(args.exclude),
+        categorical=module.parse_csv_list(args.categorical),
+    )
+    frame = module.clean_training_frame(df, config)
+    train_df, valid_df = module.train_test_split(frame, test_size=args.test_size, random_state=args.seed)
+
+    X_train = train_df[config.feature_columns].copy()
+    y_train = train_df[config.target].copy()
+    X_valid = valid_df[config.feature_columns].copy()
+    y_valid = valid_df[config.target].copy()
+
+    feature_set_name = module.register_runtime_feature_set(args, config)
+    model = module.build_model(
+        model_name=args.model,
+        numeric_columns=config.numeric_columns,
+        categorical_columns=config.categorical_columns,
+        params=params,
+        feature_set_name=feature_set_name,
+    )
+    import time
+    import numpy as np
+
+    start_train = time.perf_counter()
+    model.fit(X_train, y_train, X_valid, y_valid)
+    train_time = time.perf_counter() - start_train
+
+    start_predict = time.perf_counter()
+    pred = np.asarray(model.predict(X_valid), dtype=float)
+    predict_time = time.perf_counter() - start_predict
+    metrics = module.regression_metrics(y_valid, pred)
+    experiment_id = f"{args.csv.stem}_{args.target}_{args.model}_{len(train_df)}_seed{args.seed}"
+    row = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "experiment_id": experiment_id,
+        "csv": str(args.csv),
+        "target": args.target,
+        "model": args.model,
+        "rows": len(frame),
+        "train_rows": len(train_df),
+        "valid_rows": len(valid_df),
+        "feature_count": len(config.feature_columns),
+        "numeric_count": len(config.numeric_columns),
+        "categorical_count": len(config.categorical_columns),
+        "excluded_columns": module.json.dumps(config.excluded_columns, ensure_ascii=False),
+        "feature_columns": module.json.dumps(config.feature_columns, ensure_ascii=False),
+        "test_size": args.test_size,
+        "seed": args.seed,
+        "train_time_sec": round(train_time, 6),
+        "predict_time_sec": round(predict_time, 6),
+        **metrics,
+        "model_params": module.json.dumps(params, ensure_ascii=False),
+    }
+    module.append_result(args.output, row)
+    if args.save_predictions:
+        module.save_predictions(args.prediction_dir, experiment_id, valid_df, y_valid, pred)
+    return row
+
+
+def _load_tabular_regression_module():
+    path = ROOT / "ml" / "scripts" / "run_tabular_regression.py"
+    spec = importlib.util.spec_from_file_location("run_tabular_regression", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load generic tabular runner: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _setup_logging(args: argparse.Namespace) -> None:
     log_file = args.log_file
     if log_file is None:
-        run_scope = "full" if args.full_data else f"sample{args.sample_size}"
+        log_model = args.model
+        log_target = args.target or "config"
+        if args.config is not None and args.config.exists():
+            import json
+
+            config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+            log_model = str(config.get("model", log_model))
+            log_target = str(config.get("target", log_target))
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = Path("results/logs") / f"{args.model}_{args.feature_set}_{run_scope}_seed{args.seed}_{stamp}.log"
+        log_file = Path("results/logs") / f"{log_model}_{log_target}_seed{args.seed}_{stamp}.log"
     log_file.parent.mkdir(parents=True, exist_ok=True)
     handlers: list[logging.Handler] = [
         logging.StreamHandler(),

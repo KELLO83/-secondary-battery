@@ -17,7 +17,7 @@ from ml.src.models.base import BaseModel
 class SklearnRegressorModel(BaseModel):
     family = "sklearn"
 
-    def __init__(self, name: str, estimator: Any, feature_set: str = "discharge_summary") -> None:
+    def __init__(self, name: str, estimator: Any, feature_set: str = "default") -> None:
         super().__init__({"feature_set": feature_set})
         self.name = name
         self.pipeline = Pipeline(
@@ -40,7 +40,7 @@ class SklearnRegressorModel(BaseModel):
         return np.asarray(self.pipeline.predict(X), dtype=float)
 
 
-def create_sklearn_baseline(model_name: str, feature_set: str = "discharge_summary") -> SklearnRegressorModel:
+def create_sklearn_baseline(model_name: str, feature_set: str = "default") -> SklearnRegressorModel:
     """Factory for supported sklearn sanity models."""
     if model_name == "dummy_mean":
         return SklearnRegressorModel(model_name, DummyRegressor(strategy="mean"), feature_set)

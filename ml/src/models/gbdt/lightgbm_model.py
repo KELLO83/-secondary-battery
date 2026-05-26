@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ml.src import schema
+from ml.src.data import feature_registry
 from ml.src.models.base import BaseModel
 
 
@@ -16,7 +16,7 @@ class LightGBMModel(BaseModel):
     name = "lightgbm"
     family = "gbdt"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         super().__init__({"feature_set": feature_set, "params": params or {}})
         try:
             from lightgbm import LGBMRegressor
@@ -38,8 +38,8 @@ class LightGBMModel(BaseModel):
         default_params.update(params or {})
         self.config["params"] = default_params
         self.feature_set = feature_set
-        self.categorical_columns = schema.get_categorical_columns(feature_set)
-        self.numeric_columns = schema.get_numeric_columns(feature_set)
+        self.categorical_columns = feature_registry.get_categorical_columns(feature_set)
+        self.numeric_columns = feature_registry.get_numeric_columns(feature_set)
         self.model = LGBMRegressor(**default_params)
 
     def fit(

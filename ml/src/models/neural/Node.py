@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ml.src import schema
+from ml.src.data import feature_registry
 from ml.src.models.base import BaseModel
 
 
@@ -15,7 +15,7 @@ class NodeModel(BaseModel):
     name = "node"
     family = "neural"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str, params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "random_state": 42,
@@ -60,7 +60,7 @@ class NodeModel(BaseModel):
         X_valid: pd.DataFrame | None = None,
         y_valid: pd.Series | None = None,
     ) -> None:
-        target = schema.TARGET_COLUMN
+        target = y_train.name or "target"
         train_df = X_train.copy()
         train_df[target] = y_train.to_numpy(dtype=np.float32)
         valid_df = None
@@ -70,8 +70,8 @@ class NodeModel(BaseModel):
 
         data_config = self.DataConfig(
             target=[target],
-            continuous_cols=schema.get_numeric_columns(self.feature_set),
-            categorical_cols=schema.get_categorical_columns(self.feature_set),
+            continuous_cols=feature_registry.get_numeric_columns(self.feature_set),
+            categorical_cols=feature_registry.get_categorical_columns(self.feature_set),
             num_workers=int(self.params["num_workers"]),
             pin_memory=bool(self.params["pin_memory"]),
             handle_unknown_categories=True,
@@ -113,7 +113,7 @@ class NodeModel(BaseModel):
         if self.model is None:
             raise RuntimeError("NodeModel is not fitted")
         predictions = self.model.predict(X, progress_bar=str(self.params["progress_bar"]))
-        column = f"{schema.TARGET_COLUMN}_prediction"
+        column = next((col for col in predictions.columns if col.endswith("_prediction")), "")
         if column not in predictions.columns:
             numeric_columns = predictions.select_dtypes(include=["number"]).columns
             if len(numeric_columns) == 0:

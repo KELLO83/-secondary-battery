@@ -14,7 +14,7 @@ class TabICLv2Model(BaseModel):
     name = "tabiclv2"
     family = "foundation"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "checkpoint_version": "tabicl-regressor-v2-20260212.ckpt",

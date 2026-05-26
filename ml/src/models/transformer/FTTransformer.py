@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from ml.src import schema
+from ml.src.data import feature_registry
 from ml.src.models.base import BaseModel
 
 
@@ -16,7 +16,7 @@ class FTTransformerModel(BaseModel):
     name = "ft_transformer"
     family = "transformer"
 
-    def __init__(self, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> None:
+    def __init__(self, feature_set: str = "default", params: dict[str, Any] | None = None) -> None:
         params = {
             "device": "cuda",
             "dim": 32,
@@ -45,10 +45,10 @@ class FTTransformerModel(BaseModel):
 
     def fit(self, X_train: pd.DataFrame, y_train: pd.Series, X_valid: pd.DataFrame | None = None, y_valid: pd.Series | None = None) -> None:
         x_cat, x_num = self._fit_transform(X_train)
-        categories = [len(self.category_maps[col]) + 1 for col in schema.get_categorical_columns(self.feature_set)]
+        categories = [len(self.category_maps[col]) + 1 for col in feature_registry.get_categorical_columns(self.feature_set)]
         self.model = self.model_cls(
             categories=categories,
-            num_continuous=len(schema.get_numeric_columns(self.feature_set)),
+            num_continuous=len(feature_registry.get_numeric_columns(self.feature_set)),
             dim=int(self.params["dim"]),
             dim_out=1,
             depth=int(self.params["depth"]),
@@ -94,10 +94,10 @@ class FTTransformerModel(BaseModel):
                 optimizer.step()
 
     def _fit_transform(self, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        for col in schema.get_categorical_columns(self.feature_set):
+        for col in feature_registry.get_categorical_columns(self.feature_set):
             values = X[col].astype("string").fillna("__MISSING__").astype(str)
             self.category_maps[col] = {value: idx + 1 for idx, value in enumerate(sorted(values.unique()))}
-        for col in schema.get_numeric_columns(self.feature_set):
+        for col in feature_registry.get_numeric_columns(self.feature_set):
             values = pd.to_numeric(X[col], errors="coerce")
             median = float(values.median()) if values.notna().any() else 0.0
             filled = values.fillna(median)
@@ -109,15 +109,23 @@ class FTTransformerModel(BaseModel):
         return self._transform(X)
 
     def _transform(self, X: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
-        cat_cols = schema.get_categorical_columns(self.feature_set)
-        num_cols = schema.get_numeric_columns(self.feature_set)
-        x_cat = np.column_stack([
-            X[col].astype("string").fillna("__MISSING__").astype(str).map(self.category_maps[col]).fillna(0).to_numpy(dtype=np.int64)
-            for col in cat_cols
-        ])
-        x_num = np.column_stack([
-            ((pd.to_numeric(X[col], errors="coerce").fillna(self.numeric_medians[col]) - self.numeric_means[col]) / self.numeric_stds[col]).to_numpy(dtype=np.float32)
-            for col in num_cols
-        ])
+        cat_cols = feature_registry.get_categorical_columns(self.feature_set)
+        num_cols = feature_registry.get_numeric_columns(self.feature_set)
+        x_cat = (
+            np.column_stack([
+                X[col].astype("string").fillna("__MISSING__").astype(str).map(self.category_maps[col]).fillna(0).to_numpy(dtype=np.int64)
+                for col in cat_cols
+            ])
+            if cat_cols
+            else np.zeros((len(X), 0), dtype=np.int64)
+        )
+        x_num = (
+            np.column_stack([
+                ((pd.to_numeric(X[col], errors="coerce").fillna(self.numeric_medians[col]) - self.numeric_means[col]) / self.numeric_stds[col]).to_numpy(dtype=np.float32)
+                for col in num_cols
+            ])
+            if num_cols
+            else np.zeros((len(X), 0), dtype=np.float32)
+        )
         return x_cat, x_num
 

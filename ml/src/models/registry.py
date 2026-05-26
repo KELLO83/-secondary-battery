@@ -20,7 +20,7 @@ from ml.src.models.transformer.TabNet import TabNetModel
 from ml.src.models.transformer.TabTransformer import TabTransformerModel
 
 
-def create_model(model_name: str, feature_set: str = "discharge_summary", params: dict[str, Any] | None = None) -> BaseModel:
+def create_model(model_name: str, feature_set: str = "default", params: dict[str, Any] | None = None) -> BaseModel:
     """Create a model wrapper by name."""
     if model_name in {"dummy_mean", "dummy_median", "ridge"}:
         return create_sklearn_baseline(model_name, feature_set=feature_set)
